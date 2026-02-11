@@ -138,6 +138,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Tauri
+src-tauri/target/
+
+# Vite build output
+dist/
+
 # Design docs
 sf-roadmap.md
 sf-fdd.md
