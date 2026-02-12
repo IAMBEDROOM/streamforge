@@ -141,6 +141,9 @@ vite.config.ts.timestamp-*
 # Tauri
 src-tauri/target/
 
+# Sidecar binaries (compiled by pkg)
+src-tauri/binaries/streamforge-server-*
+
 # Vite build output
 dist/
 

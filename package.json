@@ -9,7 +9,9 @@
     "build": "tauri build",
     "preview": "vite preview",
     "vite:dev": "vite",
-    "vite:build": "vite build"
+    "vite:build": "vite build",
+    "build:server": "node scripts/build-server.js",
+    "build:server:current": "node scripts/build-server.js --current"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
