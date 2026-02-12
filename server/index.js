@@ -25,6 +25,8 @@ const config = require('./config');
 const database = require('./database');
 const alertsRouter = require('./routes/alerts');
 const settingsRouter = require('./routes/settings');
+const testAlertRouter = require('./routes/test');
+const alertQueue = require('./alerts/queue');
 
 const fs = require('fs');
 
@@ -123,6 +125,8 @@ const namespaceEvents = {
       event: 'alert:done',
       handler: (socket, data) => {
         console.log(`[Alerts] alert:done from ${socket.id}:`, data);
+        // Advance the alert queue to the next alert
+        alertQueue.onAlertDone(data);
       },
     },
     {
@@ -178,9 +182,14 @@ const namespaceEvents = {
     {
       event: 'alert:trigger',
       handler: (socket, data) => {
-        console.log(`[Dashboard] alert:trigger (test) from ${socket.id}:`, data);
-        // Forward test alert to the alerts namespace
-        namespaces['/alerts'].emit('alert:trigger', data);
+        console.log(`[Dashboard] alert:trigger from ${socket.id}:`, data);
+        // Route through the alert queue for sequential processing
+        if (data && data.type && data.username) {
+          alertQueue.enqueueAlert(data);
+        } else {
+          // Fallback: direct emit for legacy/simple payloads without queue fields
+          namespaces['/alerts'].emit('alert:trigger', data);
+        }
       },
     },
   ],
@@ -246,6 +255,9 @@ function setupNamespace(nspath) {
 for (const nspath of config.socketNamespaces) {
   setupNamespace(nspath);
 }
+
+// Initialize the alert queue with the /alerts namespace reference
+alertQueue.init(namespaces['/alerts']);
 
 // ---------------------------------------------------------------------------
 // Test Event Emitters
@@ -445,32 +457,49 @@ app.post('/api/test/alert-overlay', (req, res) => {
 
   // Default messages per alert type
   const defaultMessages = {
-    follow: 'Thanks for following!',
-    subscribe: 'Just subscribed!',
-    cheer: 'Cheered 100 bits!',
-    raid: 'is raiding with 50 viewers!',
-    donation: 'Donated $5.00!',
+    follow: '{username} just followed!',
+    subscribe: '{username} just subscribed!',
+    cheer: '{username} cheered {amount} bits!',
+    raid: '{username} is raiding with {amount} viewers!',
+    donation: '{username} donated ${amount}!',
   };
 
   const type = body.type || 'follow';
-  const payload = {
-    id: `alert_${Date.now()}`,
+  const alertData = {
     type,
     username: body.username || 'TestUser123',
-    message: body.message || defaultMessages[type] || 'Test alert!',
-    duration: body.duration || 5000,
-    animation: body.animation || 'slideIn',
-    timestamp: new Date().toISOString(),
+    displayName: body.username || 'TestUser123',
+    message: body.message || null,
+    config: {
+      message_template: defaultMessages[type] || '{username} triggered an alert!',
+      duration_ms: body.duration || 5000,
+      animation_in: body.animation || 'slideIn',
+      animation_out: 'slideOut',
+      sound_volume: 0.8,
+      font_family: 'Poppins',
+      font_size: 48,
+      text_color: '#FFFFFF',
+    },
   };
 
-  namespaces['/alerts'].emit('alert:trigger', payload);
-  console.log('[Test] Emitted alert:trigger to /alerts (overlay test)');
+  // Route through the alert queue for sequential processing
+  const alertId = alertQueue.enqueueAlert(alertData);
+
+  if (!alertId) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Failed to enqueue alert — invalid data',
+    });
+  }
+
+  console.log('[Test] Enqueued alert:trigger via /api/test/alert-overlay');
 
   res.json({
     status: 'ok',
     event: 'alert:trigger',
     namespace: '/alerts',
-    payload,
+    alertId,
+    queueLength: alertQueue.getQueueLength(),
     connectedClients: clientCounts['/alerts'],
   });
 });
@@ -481,6 +510,7 @@ app.post('/api/test/alert-overlay', (req, res) => {
 
 app.use('/api/alerts', alertsRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/test-alert', testAlertRouter);
 
 // Serve overlay browser source pages (HTML/CSS/JS loaded by OBS)
 app.use('/overlays', express.static(path.join(projectRoot, 'overlays')));
