@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamForge WebSocket Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+      background: #0f0f13;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    h1 { color: #9147ff; margin-bottom: 6px; font-size: 1.4rem; }
+    .subtitle { color: #888; margin-bottom: 20px; font-size: 0.85rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #18181b;
+      border: 1px solid #2f2f35;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #555;
+      display: inline-block;
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: #00c853; }
+    .status-dot.error { background: #ff4444; }
+    .info { color: #888; font-size: 0.8rem; margin-bottom: 10px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    button {
+      background: #2f2f35;
+      color: #e0e0e0;
+      border: 1px solid #444;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    button:hover { background: #444; }
+    button.primary { background: #9147ff; border-color: #9147ff; color: #fff; }
+    button.primary:hover { background: #7a2fdf; }
+    button.danger { background: #cc3333; border-color: #cc3333; }
+    button.danger:hover { background: #aa2222; }
+    #log-container {
+      background: #18181b;
+      border: 1px solid #2f2f35;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    #log-container h2 { font-size: 1rem; margin-bottom: 8px; }
+    #log {
+      background: #0f0f13;
+      border: 1px solid #2f2f35;
+      border-radius: 4px;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+    .log-entry { border-bottom: 1px solid #1a1a1f; padding: 2px 0; }
+    .log-entry .time { color: #555; }
+    .log-entry .ns { color: #9147ff; font-weight: bold; }
+    .log-entry .event { color: #00c853; }
+    .log-entry .warn { color: #ffab00; }
+    .log-entry .err { color: #ff4444; }
+  </style>
+</head>
+<body>
+  <h1>StreamForge WebSocket Test</h1>
+  <p class="subtitle">Connect to Socket.io namespaces, send test events, and view real-time responses.</p>
+
+  <div class="grid" id="cards"></div>
+
+  <div id="log-container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <h2>Event Log</h2>
+      <button onclick="clearLog()">Clear</button>
+    </div>
+    <div id="log"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // -----------------------------------------------------------------------
+    // Configuration
+    // -----------------------------------------------------------------------
+    const NAMESPACES = [
+      {
+        path: '/alerts',
+        label: 'Alerts',
+        testEndpoint: '/api/test/alert',
+        listenEvents: ['alert:trigger', 'alert:paused'],
+      },
+      {
+        path: '/chat',
+        label: 'Chat',
+        testEndpoint: '/api/test/chat',
+        listenEvents: ['chat:message', 'chat:clear', 'chat:delete'],
+      },
+      {
+        path: '/widgets',
+        label: 'Widgets',
+        testEndpoint: '/api/test/widget',
+        listenEvents: ['widget:update', 'config:changed'],
+      },
+      {
+        path: '/dashboard',
+        label: 'Dashboard',
+        testEndpoint: '/api/test/dashboard',
+        listenEvents: ['status:update', 'config:changed'],
+      },
+    ];
+
+    const sockets = {};  // path -> socket instance
+    const dots = {};     // path -> status dot element
+
+    // -----------------------------------------------------------------------
+    // Logging
+    // -----------------------------------------------------------------------
+    const logEl = document.getElementById('log');
+
+    function log(ns, type, msg) {
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML =
+        `<span class="time">${time}</span> ` +
+        `<span class="ns">[${ns}]</span> ` +
+        `<span class="${type}">${msg}</span>`;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearLog() {
+      logEl.innerHTML = '';
+    }
+
+    // -----------------------------------------------------------------------
+    // Build UI Cards
+    // -----------------------------------------------------------------------
+    const cardsEl = document.getElementById('cards');
+
+    // Derive a CSS-safe key from the namespace path (strip leading '/')
+    function nsKey(path) { return path.replace(/^\//, ''); }
+
+    for (const ns of NAMESPACES) {
+      const key = nsKey(ns.path);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <h2>
+          <span class="status-dot" id="dot-${key}"></span>
+          ${ns.label} <code style="color:#888;font-size:0.8rem;">${ns.path}</code>
+        </h2>
+        <div class="info" id="info-${key}">Disconnected</div>
+        <div class="btn-row">
+          <button class="primary" id="conn-${key}">Connect</button>
+          <button class="danger" id="disc-${key}" disabled>Disconnect</button>
+          <button id="test-${key}">Send Test Event</button>
+        </div>
+      `;
+      cardsEl.appendChild(card);
+
+      dots[ns.path] = document.getElementById(`dot-${key}`);
+
+      document.getElementById(`conn-${key}`).addEventListener('click', () => connectNs(ns));
+      document.getElementById(`disc-${key}`).addEventListener('click', () => disconnectNs(ns));
+      document.getElementById(`test-${key}`).addEventListener('click', () => triggerTest(ns));
+    }
+
+    // -----------------------------------------------------------------------
+    // Socket Connection
+    // -----------------------------------------------------------------------
+    function connectNs(ns) {
+      if (sockets[ns.path]?.connected) return;
+
+      const socket = io(ns.path, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 30000,
+        randomizationFactor: 0.5,
+      });
+
+      sockets[ns.path] = socket;
+
+      const key = nsKey(ns.path);
+
+      socket.on('connect', () => {
+        dots[ns.path].className = 'status-dot connected';
+        document.getElementById(`info-${key}`).textContent =
+          `Connected (${socket.id})`;
+        document.getElementById(`conn-${key}`).disabled = true;
+        document.getElementById(`disc-${key}`).disabled = false;
+        log(ns.label, 'event', `Connected as ${socket.id}`);
+      });
+
+      socket.on('welcome', (data) => {
+        log(ns.label, 'event', `Welcome: ${JSON.stringify(data)}`);
+      });
+
+      // Listen for namespace-specific events
+      for (const evt of ns.listenEvents) {
+        socket.on(evt, (data) => {
+          log(ns.label, 'event', `${evt}: ${JSON.stringify(data)}`);
+        });
+      }
+
+      socket.on('disconnect', (reason) => {
+        dots[ns.path].className = 'status-dot';
+        document.getElementById(`info-${key}`).textContent =
+          `Disconnected (${reason})`;
+        document.getElementById(`conn-${key}`).disabled = false;
+        document.getElementById(`disc-${key}`).disabled = true;
+        log(ns.label, 'warn', `Disconnected: ${reason}`);
+      });
+
+      socket.on('connect_error', (err) => {
+        dots[ns.path].className = 'status-dot error';
+        log(ns.label, 'err', `Connection error: ${err.message}`);
+      });
+    }
+
+    function disconnectNs(ns) {
+      const socket = sockets[ns.path];
+      if (socket) {
+        socket.disconnect();
+        delete sockets[ns.path];
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Test Event Trigger (via REST API)
+    // -----------------------------------------------------------------------
+    async function triggerTest(ns) {
+      try {
+        const res = await fetch(ns.testEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        const data = await res.json();
+        log(ns.label, 'event', `Test API response: ${JSON.stringify(data)}`);
+      } catch (err) {
+        log(ns.label, 'err', `Test API error: ${err.message}`);
+      }
+    }
+  </script>
+</body>
+</html>
