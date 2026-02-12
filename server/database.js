@@ -2,7 +2,8 @@
  * StreamForge — SQLite Database Module
  *
  * Initializes and manages the SQLite database using better-sqlite3.
- * Stores configuration, alert settings, and other persistent data.
+ * Includes a versioned migration runner that applies SQL files from
+ * the /migrations directory on startup.
  *
  * Database location (OS-appropriate app data directory):
  *   - Windows: %APPDATA%/streamforge/streamforge.db
@@ -13,7 +14,6 @@
 const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
-const { v4: uuidv4 } = require('uuid');
 
 // ---------------------------------------------------------------------------
 // Database Path Resolution
@@ -48,6 +48,36 @@ function getDbPath() {
 }
 
 // ---------------------------------------------------------------------------
+// Project Root Resolution (mirrors index.js strategy)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the project root directory by walking up from the current location
+ * looking for the overlays/ directory. Works in both dev mode and pkg binary.
+ * @returns {string} Absolute path to the project root
+ */
+function findProjectRoot() {
+  const isPkg = typeof process.pkg !== 'undefined';
+  const startDir = isPkg ? path.dirname(process.execPath) : __dirname;
+
+  let dir = startDir;
+  for (let i = 0; i < 10; i++) {
+    const candidate = path.join(dir, 'overlays');
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  // Fallback: assume dev mode layout (database.js is in server/)
+  return isPkg
+    ? path.join(path.dirname(process.execPath), '..', '..')
+    : path.join(__dirname, '..');
+}
+
+// ---------------------------------------------------------------------------
 // Database Initialization
 // ---------------------------------------------------------------------------
 
@@ -57,7 +87,7 @@ let db = null;
 /**
  * Initialize the SQLite database.
  * Creates the data directory and database file if they don't exist,
- * enables WAL mode for better performance, and creates initial tables.
+ * enables WAL mode and foreign keys, and runs pending migrations.
  *
  * @returns {import('better-sqlite3').Database} The database instance
  */
@@ -78,66 +108,100 @@ function initDatabase() {
   // Enable WAL mode for better concurrent read performance
   db.pragma('journal_mode = WAL');
 
-  // Create tables
-  createTables();
+  // Enable foreign key enforcement (required for CASCADE deletes)
+  db.pragma('foreign_keys = ON');
 
-  // Seed default data if tables are empty
-  seedDefaults();
+  // Run pending migrations
+  runMigrations();
 
   return db;
 }
 
-/**
- * Create the initial database schema.
- * Uses IF NOT EXISTS so this is safe to run on every startup.
- */
-function createTables() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
+// ---------------------------------------------------------------------------
+// Migration Runner
+// ---------------------------------------------------------------------------
 
-    CREATE TABLE IF NOT EXISTS alerts (
-      id TEXT PRIMARY KEY,
-      type TEXT NOT NULL,
-      name TEXT NOT NULL,
-      enabled INTEGER DEFAULT 1,
-      message_template TEXT,
-      duration_ms INTEGER DEFAULT 5000,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+/**
+ * Run all pending SQL migrations from the /migrations directory.
+ *
+ * The runner tracks applied migrations in a `_migrations` table. On each
+ * startup it scans the migrations directory, compares against already-applied
+ * migrations, and executes any new ones in alphabetical order inside
+ * individual transactions.
+ */
+function runMigrations() {
+  // Create the migrations tracking table if it doesn't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename TEXT UNIQUE NOT NULL,
+      applied_at TEXT NOT NULL
     );
   `);
 
-  console.log('[Database] Tables verified (settings, alerts)');
-}
+  // Resolve the migrations directory
+  const projectRoot = findProjectRoot();
+  const migrationsDir = path.join(projectRoot, 'migrations');
 
-/**
- * Seed default data when the database is first created.
- * Only inserts if the alerts table is empty.
- */
-function seedDefaults() {
-  const count = db.prepare('SELECT COUNT(*) as count FROM alerts').get();
+  if (!fs.existsSync(migrationsDir)) {
+    console.log('[Database] No migrations directory found, skipping migrations');
+    return;
+  }
 
-  if (count.count === 0) {
-    const now = new Date().toISOString();
-    db.prepare(`
-      INSERT INTO alerts (id, type, name, enabled, message_template, duration_ms, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      uuidv4(),
-      'follow',
-      'New Follower',
-      1,
-      'Thanks for following, {username}!',
-      5000,
-      now,
-      now
-    );
+  // Get all .sql files sorted alphabetically
+  const migrationFiles = fs.readdirSync(migrationsDir)
+    .filter(f => f.endsWith('.sql'))
+    .sort();
 
-    console.log('[Database] Seeded default alert configuration');
+  if (migrationFiles.length === 0) {
+    console.log('[Database] No migration files found');
+    return;
+  }
+
+  // Get already-applied migrations
+  const applied = new Set(
+    db.prepare('SELECT filename FROM _migrations').all().map(row => row.filename)
+  );
+
+  // Apply pending migrations
+  let appliedCount = 0;
+  for (const filename of migrationFiles) {
+    if (applied.has(filename)) continue;
+
+    const filePath = path.join(migrationsDir, filename);
+    const sql = fs.readFileSync(filePath, 'utf-8');
+
+    console.log(`[Database] Applying migration: ${filename}`);
+
+    // Run the migration inside a transaction for safety.
+    // Note: We temporarily disable foreign keys during migration because
+    // ALTER TABLE statements can conflict with FK enforcement in SQLite.
+    const applyMigration = db.transaction(() => {
+      db.pragma('foreign_keys = OFF');
+      db.exec(sql);
+      db.pragma('foreign_keys = ON');
+      db.prepare(
+        'INSERT INTO _migrations (filename, applied_at) VALUES (?, ?)'
+      ).run(filename, new Date().toISOString());
+    });
+
+    try {
+      applyMigration();
+      appliedCount++;
+      console.log(`[Database] Applied migration: ${filename}`);
+    } catch (err) {
+      console.error(`[Database] Migration failed: ${filename}`);
+      console.error(`[Database] Error: ${err.message}`);
+      // Re-enable foreign keys even on failure
+      try { db.pragma('foreign_keys = ON'); } catch (_) {}
+      throw err; // Stop processing further migrations
+    }
+  }
+
+  if (appliedCount > 0) {
+    console.log(`[Database] Applied ${appliedCount} migration(s)`);
+  } else {
+    console.log('[Database] All migrations already applied');
   }
 }
 
@@ -167,105 +231,6 @@ function setSetting(key, value) {
     VALUES (?, ?, ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
   `).run(key, value, now);
-}
-
-// ---------------------------------------------------------------------------
-// Alerts Helper Functions
-// ---------------------------------------------------------------------------
-
-/**
- * Get all alert configurations.
- * @returns {object[]} Array of alert objects
- */
-function getAllAlerts() {
-  return db.prepare('SELECT * FROM alerts ORDER BY created_at ASC').all();
-}
-
-/**
- * Get a single alert by ID.
- * @param {string} id - The alert UUID
- * @returns {object|null} The alert object, or null if not found
- */
-function getAlertById(id) {
-  return db.prepare('SELECT * FROM alerts WHERE id = ?').get(id) || null;
-}
-
-/**
- * Create a new alert configuration.
- * @param {object} alertData - Alert properties
- * @param {string} alertData.type - Alert type (follow, subscribe, cheer, raid, donation, custom)
- * @param {string} alertData.name - Display name
- * @param {number} [alertData.enabled=1] - Whether the alert is enabled
- * @param {string} [alertData.message_template] - Message template with {variables}
- * @param {number} [alertData.duration_ms=5000] - Display duration in milliseconds
- * @returns {object} The created alert object
- */
-function createAlert(alertData) {
-  const id = uuidv4();
-  const now = new Date().toISOString();
-
-  db.prepare(`
-    INSERT INTO alerts (id, type, name, enabled, message_template, duration_ms, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    alertData.type,
-    alertData.name,
-    alertData.enabled !== undefined ? alertData.enabled : 1,
-    alertData.message_template || null,
-    alertData.duration_ms || 5000,
-    now,
-    now
-  );
-
-  return getAlertById(id);
-}
-
-/**
- * Update an existing alert configuration.
- * Only updates fields that are provided in alertData.
- * @param {string} id - The alert UUID
- * @param {object} alertData - Fields to update
- * @returns {object|null} The updated alert object, or null if not found
- */
-function updateAlert(id, alertData) {
-  const existing = getAlertById(id);
-  if (!existing) return null;
-
-  const now = new Date().toISOString();
-  const updated = {
-    type: alertData.type !== undefined ? alertData.type : existing.type,
-    name: alertData.name !== undefined ? alertData.name : existing.name,
-    enabled: alertData.enabled !== undefined ? alertData.enabled : existing.enabled,
-    message_template: alertData.message_template !== undefined ? alertData.message_template : existing.message_template,
-    duration_ms: alertData.duration_ms !== undefined ? alertData.duration_ms : existing.duration_ms,
-  };
-
-  db.prepare(`
-    UPDATE alerts
-    SET type = ?, name = ?, enabled = ?, message_template = ?, duration_ms = ?, updated_at = ?
-    WHERE id = ?
-  `).run(
-    updated.type,
-    updated.name,
-    updated.enabled,
-    updated.message_template,
-    updated.duration_ms,
-    now,
-    id
-  );
-
-  return getAlertById(id);
-}
-
-/**
- * Delete an alert configuration.
- * @param {string} id - The alert UUID
- * @returns {boolean} True if the alert was deleted, false if not found
- */
-function deleteAlert(id) {
-  const result = db.prepare('DELETE FROM alerts WHERE id = ?').run(id);
-  return result.changes > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,11 +273,4 @@ module.exports = {
   // Settings
   getSetting,
   setSetting,
-
-  // Alerts
-  getAllAlerts,
-  getAlertById,
-  createAlert,
-  updateAlert,
-  deleteAlert,
 };
