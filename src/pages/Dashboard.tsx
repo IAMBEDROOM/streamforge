@@ -1,6 +1,8 @@
-import { Activity, Users, Bell, Wifi } from "lucide-react";
+import { Activity, Users, Bell, Wifi, Monitor } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import TestAlertPanel from "../components/TestAlertPanel";
+import BrowserSourceUrl from "../components/BrowserSourceUrl";
+import { getServerUrl } from "../api/config";
 
 function StatCard({
   icon: Icon,
@@ -82,6 +84,57 @@ function Dashboard() {
             <li>
               Copy the browser source URLs into OBS to display overlays on your
               stream
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      {/* Browser Source URLs */}
+      <div className="mt-8 rounded-xl border border-panel-border bg-panel-surface p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-sf-primary" />
+          <h2 className="text-lg font-semibold text-white">
+            Browser Source URLs
+          </h2>
+        </div>
+        <p className="mb-4 text-sm text-gray-400">
+          Copy these URLs into OBS Studio as Browser Sources to display overlays
+          on your stream.
+        </p>
+
+        <div className="mb-5 space-y-3">
+          <BrowserSourceUrl
+            label="Alert Overlay"
+            path="/overlays/alerts/"
+            serverUrl={getServerUrl()}
+          />
+        </div>
+
+        <div className="rounded-lg border border-panel-border bg-panel-bg p-4">
+          <h3 className="mb-2 text-sm font-medium text-gray-300">
+            OBS Setup Instructions
+          </h3>
+          <ol className="list-inside list-decimal space-y-1.5 text-xs text-gray-500">
+            <li>
+              In OBS, click{" "}
+              <span className="text-gray-300">Sources &gt; + &gt; Browser</span>
+            </li>
+            <li>Paste the URL above into the URL field</li>
+            <li>
+              Set size to{" "}
+              <span className="text-gray-300">1920 x 1080</span>
+            </li>
+            <li>
+              Check{" "}
+              <span className="text-gray-300">
+                "Shutdown source when not visible"
+              </span>
+            </li>
+            <li>
+              Check{" "}
+              <span className="text-gray-300">
+                "Refresh browser when scene becomes active"
+              </span>
             </li>
           </ol>
         </div>

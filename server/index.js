@@ -349,6 +349,21 @@ app.get('/api/ws/status', (req, res) => {
   });
 });
 
+// Server info endpoint — used by Dashboard and Settings pages
+app.get('/api/server/info', (req, res) => {
+  res.json({
+    status: 'running',
+    port: serverPort,
+    host: config.host,
+    uptime: process.uptime(),
+    version: '0.1.0',
+    dbPath: database.getDbPath(),
+    overlays: {
+      alerts: '/overlays/alerts/',
+    },
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Test API Endpoints
 // ---------------------------------------------------------------------------

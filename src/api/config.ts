@@ -47,3 +47,30 @@ export async function getServerUrlAsync(): Promise<string> {
   const port = await getServerPort();
   return `http://localhost:${port}`;
 }
+
+// ---------------------------------------------------------------------------
+// Server Info
+// ---------------------------------------------------------------------------
+
+export interface ServerInfo {
+  status: "running" | "stopped";
+  port: number;
+  host: string;
+  uptime: number;
+  version: string;
+  dbPath: string;
+  overlays: Record<string, string>;
+}
+
+/**
+ * Fetch detailed server information from the `/api/server/info` endpoint.
+ * Requires the server port to have been fetched at least once.
+ */
+export async function fetchServerInfo(): Promise<ServerInfo> {
+  const url = await getServerUrlAsync();
+  const res = await fetch(`${url}/api/server/info`);
+  if (!res.ok) {
+    throw new Error(`Server info request failed: ${res.status}`);
+  }
+  return res.json();
+}
