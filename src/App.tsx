@@ -3,6 +3,7 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Alerts from "./pages/Alerts";
 import Widgets from "./pages/Widgets";
+import Themes from "./pages/Themes";
 import Settings from "./pages/Settings";
 import { useServerConnection } from "./hooks/useServerConnection";
 
@@ -71,7 +72,7 @@ function ErrorScreen({
 // ---------------------------------------------------------------------------
 
 function App() {
-  const { status, serverUrl, error, retry } = useServerConnection();
+  const { status, error, retry } = useServerConnection();
 
   if (status === "connecting") {
     return <LoadingScreen />;
@@ -82,28 +83,18 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-panel-bg text-gray-100">
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/widgets" element={<Widgets />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
-
-      {/* Debug footer — shows the sidecar server URL */}
-      <footer className="flex items-center justify-between border-t border-gray-700/50 bg-panel-bg px-4 py-1.5 text-xs text-gray-500">
-        <span>StreamForge v0.1.0</span>
-        <span>
-          Server:{" "}
-          <span className="text-green-400">{serverUrl}</span>
-        </span>
-      </footer>
+    <div className="flex h-screen bg-panel-bg text-gray-100">
+      <Sidebar connectionStatus={status} />
+      <main className="flex-1 overflow-y-auto p-6">
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/widgets" element={<Widgets />} />
+          <Route path="/themes" element={<Themes />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
     </div>
   );
 }

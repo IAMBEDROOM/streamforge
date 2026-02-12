@@ -1,15 +1,19 @@
 import { Bell, Plus } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 
 function Alerts() {
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Alerts</h1>
-        <button className="flex items-center gap-2 rounded-lg bg-sf-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sf-700">
-          <Plus className="h-4 w-4" />
-          New Alert
-        </button>
-      </div>
+      <PageHeader
+        title="Alerts"
+        breadcrumbs={[{ label: "Alerts" }]}
+        actions={
+          <button className="flex items-center gap-2 rounded-lg bg-sf-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sf-primary-dark">
+            <Plus className="h-4 w-4" />
+            New Alert
+          </button>
+        }
+      />
 
       {/* Empty state */}
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-panel-border bg-panel-surface py-16">

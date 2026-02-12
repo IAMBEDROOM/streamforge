@@ -6,17 +6,12 @@ export default {
       colors: {
         // StreamForge brand colors
         sf: {
-          50: "#f0f4ff",
-          100: "#dbe4ff",
-          200: "#bac8ff",
-          300: "#91a7ff",
-          400: "#748ffc",
-          500: "#5c7cfa",
-          600: "#4c6ef5",
-          700: "#4263eb",
-          800: "#3b5bdb",
-          900: "#364fc7",
-          950: "#1e3a8a",
+          primary: "#6C3CE1",
+          "primary-light": "#8B5CF6",
+          "primary-dark": "#5529BD",
+          accent: "#00D4AA",
+          "accent-light": "#34E0BF",
+          "accent-dark": "#00B892",
         },
         panel: {
           bg: "#0f1117",

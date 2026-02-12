@@ -1,15 +1,19 @@
 import { Puzzle, Plus } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 
 function Widgets() {
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Widgets</h1>
-        <button className="flex items-center gap-2 rounded-lg bg-sf-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sf-700">
-          <Plus className="h-4 w-4" />
-          Add Widget
-        </button>
-      </div>
+      <PageHeader
+        title="Widgets"
+        breadcrumbs={[{ label: "Widgets" }]}
+        actions={
+          <button className="flex items-center gap-2 rounded-lg bg-sf-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sf-primary-dark">
+            <Plus className="h-4 w-4" />
+            Add Widget
+          </button>
+        }
+      />
 
       {/* Widget type grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -20,7 +24,8 @@ function Widgets() {
           },
           {
             name: "Event List",
-            description: "Scrolling list of recent follows, subs, and donations",
+            description:
+              "Scrolling list of recent follows, subs, and donations",
           },
           {
             name: "Goal Bar",
@@ -41,10 +46,10 @@ function Widgets() {
         ].map((widget) => (
           <div
             key={widget.name}
-            className="group cursor-pointer rounded-xl border border-panel-border bg-panel-surface p-5 transition-colors hover:border-sf-600/50"
+            className="group cursor-pointer rounded-xl border border-panel-border bg-panel-surface p-5 transition-colors hover:border-sf-primary/40"
           >
             <div className="mb-2 flex items-center gap-2">
-              <Puzzle className="h-5 w-5 text-sf-500" />
+              <Puzzle className="h-5 w-5 text-sf-primary" />
               <h3 className="font-semibold text-white">{widget.name}</h3>
             </div>
             <p className="text-sm text-gray-500">{widget.description}</p>

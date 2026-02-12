@@ -1,4 +1,5 @@
 import { Activity, Users, Bell, Wifi } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 
 function StatCard({
   icon: Icon,
@@ -12,7 +13,7 @@ function StatCard({
   subtext: string;
 }) {
   return (
-    <div className="rounded-xl border border-panel-border bg-panel-surface p-5">
+    <div className="rounded-xl border border-panel-border bg-panel-surface p-5 transition-colors hover:border-panel-border/80">
       <div className="mb-3 flex items-center gap-2 text-gray-400">
         <Icon className="h-4 w-4" />
         <span className="text-sm">{label}</span>
@@ -26,7 +27,7 @@ function StatCard({
 function Dashboard() {
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">Dashboard</h1>
+      <PageHeader title="Dashboard" />
 
       {/* Stats Grid */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -62,21 +63,20 @@ function Dashboard() {
           Getting Started
         </h2>
         <div className="space-y-3 text-sm text-gray-400">
-          <p>
-            Welcome to StreamForge! Here's how to get started:
-          </p>
+          <p>Welcome to StreamForge! Here's how to get started:</p>
           <ol className="list-inside list-decimal space-y-2">
             <li>
-              Go to <span className="text-sf-400">Settings</span> to connect
-              your Twitch or YouTube account
+              Go to <span className="text-sf-primary-light">Settings</span> to
+              connect your Twitch or YouTube account
             </li>
             <li>
-              Configure your <span className="text-sf-400">Alerts</span> —
-              customise notifications for follows, subs, and donations
+              Configure your{" "}
+              <span className="text-sf-primary-light">Alerts</span> — customise
+              notifications for follows, subs, and donations
             </li>
             <li>
-              Set up <span className="text-sf-400">Widgets</span> — add a chat
-              box, event list, or goal bar to your stream
+              Set up <span className="text-sf-primary-light">Widgets</span> —
+              add a chat box, event list, or goal bar to your stream
             </li>
             <li>
               Copy the browser source URLs into OBS to display overlays on your

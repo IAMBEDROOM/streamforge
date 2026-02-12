@@ -1,9 +1,13 @@
-import { Settings as SettingsIcon, ExternalLink } from "lucide-react";
+import { Settings as SettingsIcon, ExternalLink, Monitor } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 
 function Settings() {
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-white">Settings</h1>
+      <PageHeader
+        title="Settings"
+        breadcrumbs={[{ label: "Settings" }]}
+      />
 
       <div className="space-y-6">
         {/* Platform Connections */}
@@ -60,6 +64,24 @@ function Settings() {
                 </p>
               </div>
               <div className="h-6 w-11 rounded-full bg-panel-border" />
+            </div>
+          </div>
+        </section>
+
+        {/* System Tray */}
+        <section className="rounded-xl border border-panel-border bg-panel-surface p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sf-primary/10">
+              <Monitor className="h-5 w-5 text-sf-primary" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-white">
+                System Tray Integration
+              </h2>
+              <p className="text-xs text-gray-500">
+                Coming in Phase 8 — minimise to tray, quick actions, and
+                notifications
+              </p>
             </div>
           </div>
         </section>
