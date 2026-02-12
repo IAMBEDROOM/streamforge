@@ -1,5 +1,6 @@
 import { Activity, Users, Bell, Wifi } from "lucide-react";
 import PageHeader from "../components/PageHeader";
+import TestAlertPanel from "../components/TestAlertPanel";
 
 function StatCard({
   icon: Icon,
@@ -84,6 +85,11 @@ function Dashboard() {
             </li>
           </ol>
         </div>
+      </div>
+
+      {/* Test Your Setup */}
+      <div className="mt-8">
+        <TestAlertPanel />
       </div>
     </div>
   );

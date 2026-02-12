@@ -23,6 +23,49 @@ const { Server: SocketIOServer } = require('socket.io');
 const cors = require('cors');
 const config = require('./config');
 
+const fs = require('fs');
+
+// ---------------------------------------------------------------------------
+// Path Resolution (works in both dev mode and compiled pkg binary)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the project root directory. Needs to work in:
+ *   1. Dev mode: `node server/index.js` → __dirname is <project>/server/
+ *   2. Pkg binary via Tauri dev: binary is at <project>/src-tauri/target/debug/binaries/
+ *   3. Pkg binary via Tauri build: binary is at <project>/src-tauri/binaries/
+ *   4. Pkg binary standalone: binary could be anywhere
+ *
+ * Strategy: start from the binary/script location and walk up the directory
+ * tree looking for the overlays/ directory. This is resilient to any nesting.
+ */
+function findProjectRoot() {
+  const isPkg = typeof process.pkg !== 'undefined';
+  const startDir = isPkg ? path.dirname(process.execPath) : __dirname;
+
+  // Walk up from startDir looking for a directory that contains overlays/
+  let dir = startDir;
+  for (let i = 0; i < 10; i++) {
+    const candidate = path.join(dir, 'overlays');
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      console.log(`[Server] Project root resolved: ${dir}`);
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // hit filesystem root
+    dir = parent;
+  }
+
+  // Fallback: assume dev mode layout
+  const fallback = isPkg
+    ? path.join(path.dirname(process.execPath), '..', '..')
+    : path.join(__dirname, '..');
+  console.log(`[Server] Could not find overlays/ directory. Using fallback root: ${fallback}`);
+  return fallback;
+}
+
+const projectRoot = findProjectRoot();
+
 // ---------------------------------------------------------------------------
 // Express App Setup
 // ---------------------------------------------------------------------------
@@ -214,8 +257,10 @@ function emitTestAlert(data) {
   const payload = data || {
     id: `alert_${Date.now()}`,
     type: 'follow',
-    username: 'TestUser',
-    message: 'just followed!',
+    username: 'TestUser123',
+    message: 'Thanks for following!',
+    duration: 5000,
+    animation: 'slideIn',
     timestamp: new Date().toISOString(),
   };
   namespaces['/alerts'].emit('alert:trigger', payload);
@@ -368,8 +413,52 @@ app.post('/api/test/dashboard', (req, res) => {
   });
 });
 
-// Placeholder for future overlay static file serving
-// app.use('/overlays', express.static(path.join(__dirname, '..', 'overlays')));
+/**
+ * POST /api/test/alert-overlay
+ * Triggers a test alert specifically designed for the overlay browser source.
+ * Includes overlay-specific defaults (duration, animation) that match the
+ * alert overlay's expected data format.
+ *
+ * Accepts optional JSON body:
+ *   { type, username, message, duration, animation }
+ */
+app.post('/api/test/alert-overlay', (req, res) => {
+  const body = req.body || {};
+
+  // Default messages per alert type
+  const defaultMessages = {
+    follow: 'Thanks for following!',
+    subscribe: 'Just subscribed!',
+    cheer: 'Cheered 100 bits!',
+    raid: 'is raiding with 50 viewers!',
+    donation: 'Donated $5.00!',
+  };
+
+  const type = body.type || 'follow';
+  const payload = {
+    id: `alert_${Date.now()}`,
+    type,
+    username: body.username || 'TestUser123',
+    message: body.message || defaultMessages[type] || 'Test alert!',
+    duration: body.duration || 5000,
+    animation: body.animation || 'slideIn',
+    timestamp: new Date().toISOString(),
+  };
+
+  namespaces['/alerts'].emit('alert:trigger', payload);
+  console.log('[Test] Emitted alert:trigger to /alerts (overlay test)');
+
+  res.json({
+    status: 'ok',
+    event: 'alert:trigger',
+    namespace: '/alerts',
+    payload,
+    connectedClients: clientCounts['/alerts'],
+  });
+});
+
+// Serve overlay browser source pages (HTML/CSS/JS loaded by OBS)
+app.use('/overlays', express.static(path.join(projectRoot, 'overlays')));
 
 // 404 handler for unknown API routes
 app.use('/api', (req, res) => {
@@ -466,6 +555,9 @@ async function startServer() {
       );
       console.log(
         `[Server] Test page: http://${config.host}:${serverPort}/test.html`
+      );
+      console.log(
+        `[Server] Alert overlay: http://${config.host}:${serverPort}/overlays/alerts/`
       );
       console.log(
         `[Server] Socket.io namespaces: ${config.socketNamespaces.join(', ')}`
