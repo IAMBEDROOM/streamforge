@@ -22,6 +22,9 @@ const express = require('express');
 const { Server: SocketIOServer } = require('socket.io');
 const cors = require('cors');
 const config = require('./config');
+const database = require('./database');
+const alertsRouter = require('./routes/alerts');
+const settingsRouter = require('./routes/settings');
 
 const fs = require('fs');
 
@@ -457,6 +460,13 @@ app.post('/api/test/alert-overlay', (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Database-backed API Routes
+// ---------------------------------------------------------------------------
+
+app.use('/api/alerts', alertsRouter);
+app.use('/api/settings', settingsRouter);
+
 // Serve overlay browser source pages (HTML/CSS/JS loaded by OBS)
 app.use('/overlays', express.static(path.join(projectRoot, 'overlays')));
 
@@ -534,6 +544,15 @@ let serverPort = null;
 
 async function startServer() {
   try {
+    // Initialize the SQLite database (creates file, tables, and seed data)
+    try {
+      database.initDatabase();
+      console.log(`[Server] Database location: ${database.getDbPath()}`);
+    } catch (dbErr) {
+      console.error('[Server] Failed to initialize database:', dbErr.message);
+      console.error('[Server] The server will start without database support.');
+    }
+
     const port = await findAvailablePort();
 
     httpServer.listen(port, config.host, () => {
@@ -581,6 +600,9 @@ async function startServer() {
  */
 function shutdown(signal) {
   console.log(`\n[Server] Received ${signal}, shutting down gracefully...`);
+
+  // Close the database connection
+  database.closeDatabase();
 
   // Close Socket.io (disconnects all clients)
   io.close(() => {
