@@ -28,6 +28,7 @@ const settingsRouter = require('./routes/settings');
 const testAlertRouter = require('./routes/test');
 const uploadRouter = require('./routes/upload');
 const alertQueue = require('./alerts/queue');
+const alertsDb = require('./alerts/database');
 
 const fs = require('fs');
 
@@ -186,6 +187,42 @@ const namespaceEvents = {
         console.log(`[Dashboard] alert:trigger from ${socket.id}:`, data);
         // Route through the alert queue for sequential processing
         if (data && data.type && data.username) {
+          // Try to match the best alert config (including variation matching)
+          try {
+            const eventData = {
+              username: data.username,
+              tier: data.tier || null,
+              amount: data.amount || null,
+              custom_value: data.custom_value || null,
+            };
+            const matchedAlert = alertsDb.findMatchingAlert(data.type, eventData);
+            if (matchedAlert) {
+              // Merge matched config (with variation overrides) into the alert data
+              data.config = {
+                ...(data.config || {}),
+                message_template: matchedAlert.message_template || data.config?.message_template,
+                animation_in: matchedAlert.animation_in || data.config?.animation_in,
+                animation_out: matchedAlert.animation_out || data.config?.animation_out,
+                sound_path: matchedAlert.sound_path !== null ? matchedAlert.sound_path : data.config?.sound_path,
+                sound_volume: matchedAlert.sound_volume !== null ? matchedAlert.sound_volume : data.config?.sound_volume,
+                image_path: matchedAlert.image_path !== null ? matchedAlert.image_path : data.config?.image_path,
+                font_family: matchedAlert.font_family || data.config?.font_family,
+                font_size: matchedAlert.font_size || data.config?.font_size,
+                text_color: matchedAlert.text_color || data.config?.text_color,
+                bg_color: matchedAlert.bg_color,
+                custom_css: matchedAlert.custom_css || data.config?.custom_css,
+                duration_ms: matchedAlert.duration_ms || data.config?.duration_ms,
+                tts_enabled: matchedAlert.tts_enabled,
+              };
+              if (matchedAlert._variation_id) {
+                console.log(
+                  `[Dashboard] Matched variation "${matchedAlert._variation_name}" for ${data.type} event`
+                );
+              }
+            }
+          } catch (err) {
+            console.warn('[Dashboard] Variation matching failed, using raw data:', err.message);
+          }
           alertQueue.enqueueAlert(data);
         } else {
           // Fallback: direct emit for legacy/simple payloads without queue fields

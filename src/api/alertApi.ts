@@ -52,19 +52,35 @@ export interface AlertVariation {
   id: string;
   parent_alert_id: string;
   name: string;
-  condition_type: string;
+  condition_type: "tier" | "amount" | "custom";
   condition_value: string;
   message_template: string | null;
   sound_path: string | null;
   sound_volume: number | null;
   image_path: string | null;
-  animation_in: string | null;
-  animation_out: string | null;
+  animation_in: AnimationIn | null;
+  animation_out: AnimationOut | null;
   custom_css: string | null;
-  enabled: number;
+  enabled: number; // 0 | 1
   priority: number;
   created_at: string;
   updated_at: string;
+}
+
+/** Fields accepted when creating or updating a variation. */
+export interface AlertVariationInput {
+  name?: string;
+  condition_type?: "tier" | "amount" | "custom";
+  condition_value?: string;
+  message_template?: string | null;
+  sound_path?: string | null;
+  sound_volume?: number | null;
+  image_path?: string | null;
+  animation_in?: AnimationIn | null;
+  animation_out?: AnimationOut | null;
+  custom_css?: string | null;
+  enabled?: number;
+  priority?: number;
 }
 
 /** Fields accepted when creating or updating an alert. */
@@ -281,4 +297,61 @@ export async function deleteImage(filename: string): Promise<void> {
     method: "DELETE",
   });
   await handleResponse(res);
+}
+
+// ---------------------------------------------------------------------------
+// Alert Variation CRUD
+// ---------------------------------------------------------------------------
+
+/** Fetch all variations for a parent alert. */
+export async function fetchVariations(
+  alertId: string
+): Promise<AlertVariation[]> {
+  const res = await fetch(
+    `${serverUrl()}/api/alerts/${alertId}/variations`
+  );
+  return handleResponse<AlertVariation[]>(res);
+}
+
+/** Create a new variation for a parent alert. */
+export async function createVariation(
+  alertId: string,
+  data: AlertVariationInput
+): Promise<AlertVariation> {
+  const res = await fetch(
+    `${serverUrl()}/api/alerts/${alertId}/variations`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+  return handleResponse<AlertVariation>(res);
+}
+
+/** Update an existing variation. */
+export async function updateVariation(
+  variationId: string,
+  data: AlertVariationInput
+): Promise<AlertVariation> {
+  const res = await fetch(
+    `${serverUrl()}/api/alerts/variations/${variationId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }
+  );
+  return handleResponse<AlertVariation>(res);
+}
+
+/** Delete a variation. */
+export async function deleteVariation(
+  variationId: string
+): Promise<{ status: string; message: string }> {
+  const res = await fetch(
+    `${serverUrl()}/api/alerts/variations/${variationId}`,
+    { method: "DELETE" }
+  );
+  return handleResponse(res);
 }

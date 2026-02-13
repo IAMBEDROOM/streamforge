@@ -27,6 +27,7 @@ import type { Alert, AlertType, AlertInput } from "../../api/alertApi";
 import AlertPreview from "./AlertPreview";
 import SoundPicker from "./SoundPicker";
 import ImagePicker from "./ImagePicker";
+import VariationList from "./VariationList";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -715,6 +716,13 @@ export default function AlertEditor({
           </div>
         )}
       </section>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Variations (only shown when editing an existing alert) */}
+      {/* ----------------------------------------------------------------- */}
+      {!isCreating && alert && (
+        <VariationList alertId={alert.id} alertType={alert.type} />
+      )}
 
       {/* ----------------------------------------------------------------- */}
       {/* Actions */}

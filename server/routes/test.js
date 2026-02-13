@@ -79,33 +79,45 @@ router.post('/', (req, res) => {
   const username = body.username || DEFAULT_USERNAMES[Math.floor(Math.random() * DEFAULT_USERNAMES.length)];
   const typeDefaults = TEST_DEFAULTS[type] || TEST_DEFAULTS.follow;
 
-  // Try to load saved alert config from the database for this type
+  // Build event data for variation matching
+  const eventData = {
+    username,
+    tier: body.tier || null,
+    amount: body.amount || (type === 'cheer' ? 100 : type === 'raid' ? 50 : type === 'donation' ? 5 : null),
+    custom_value: body.custom_value || null,
+  };
+
+  // Try to find the best matching alert config (including variation matching)
   let savedConfig = {};
   try {
-    const savedAlerts = alertDb.getAlertsByType(type);
-    // Use the first enabled alert for this type, or the first one if none enabled
-    const savedAlert = savedAlerts.find(a => a.enabled === 1) || savedAlerts[0];
-    if (savedAlert) {
+    const matchedAlert = alertDb.findMatchingAlert(type, eventData);
+    if (matchedAlert) {
       savedConfig = {
-        message_template: savedAlert.message_template,
-        duration_ms: savedAlert.duration_ms,
-        animation_in: savedAlert.animation_in,
-        animation_out: savedAlert.animation_out,
-        sound_path: savedAlert.sound_path,
-        sound_volume: savedAlert.sound_volume,
-        image_path: savedAlert.image_path,
-        font_family: savedAlert.font_family,
-        font_size: savedAlert.font_size,
-        text_color: savedAlert.text_color,
-        bg_color: savedAlert.bg_color,
-        custom_css: savedAlert.custom_css,
-        tts_enabled: savedAlert.tts_enabled,
+        message_template: matchedAlert.message_template,
+        duration_ms: matchedAlert.duration_ms,
+        animation_in: matchedAlert.animation_in,
+        animation_out: matchedAlert.animation_out,
+        sound_path: matchedAlert.sound_path,
+        sound_volume: matchedAlert.sound_volume,
+        image_path: matchedAlert.image_path,
+        font_family: matchedAlert.font_family,
+        font_size: matchedAlert.font_size,
+        text_color: matchedAlert.text_color,
+        bg_color: matchedAlert.bg_color,
+        custom_css: matchedAlert.custom_css,
+        tts_enabled: matchedAlert.tts_enabled,
       };
       // Remove null/undefined values so they don't override defaults
       for (const key of Object.keys(savedConfig)) {
         if (savedConfig[key] === null || savedConfig[key] === undefined) {
           delete savedConfig[key];
         }
+      }
+
+      if (matchedAlert._variation_id) {
+        console.log(
+          `[TestAlert] Matched variation "${matchedAlert._variation_name}" (${matchedAlert._variation_id}) for ${type} event`
+        );
       }
     }
   } catch (err) {
@@ -136,7 +148,8 @@ router.post('/', (req, res) => {
     type,
     username,
     displayName: body.displayName || username,
-    amount: body.amount || (type === 'cheer' ? 100 : type === 'raid' ? 50 : type === 'donation' ? 5 : null),
+    amount: eventData.amount,
+    tier: eventData.tier,
     message: body.message || null,
     config,
   };
