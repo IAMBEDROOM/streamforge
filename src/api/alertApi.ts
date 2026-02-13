@@ -100,6 +100,13 @@ export interface SoundInfo {
   uploaded: string;
 }
 
+export interface ImageInfo {
+  filename: string;
+  path: string;
+  size: number;
+  uploaded: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
@@ -260,4 +267,18 @@ export async function uploadImageFromPath(
     body: JSON.stringify({ filePath }),
   });
   return handleResponse<UploadResponse>(res);
+}
+
+/** List all uploaded image files. */
+export async function listImages(): Promise<{ images: ImageInfo[] }> {
+  const res = await fetch(`${serverUrl()}/api/upload/images`);
+  return handleResponse<{ images: ImageInfo[] }>(res);
+}
+
+/** Delete an uploaded image file by filename. */
+export async function deleteImage(filename: string): Promise<void> {
+  const res = await fetch(`${serverUrl()}/api/upload/image/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+  });
+  await handleResponse(res);
 }

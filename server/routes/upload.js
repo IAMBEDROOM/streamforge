@@ -353,4 +353,85 @@ router.delete('/sound/:filename', (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Image Management Routes
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /api/upload/images
+ * List all uploaded image files with metadata.
+ */
+router.get('/images', (req, res) => {
+  try {
+    const dir = path.join(getDataDir(), 'images');
+    ensureDir(dir);
+
+    const allowedExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp'];
+    const files = fs.readdirSync(dir);
+    const images = files
+      .filter((file) => {
+        const ext = path.extname(file).toLowerCase();
+        return allowedExts.includes(ext);
+      })
+      .map((file) => {
+        const filePath = path.join(dir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          filename: file,
+          path: `/images/${file}`,
+          size: stats.size,
+          uploaded: stats.mtime.toISOString(),
+        };
+      })
+      // Most recently uploaded first
+      .sort((a, b) => b.uploaded.localeCompare(a.uploaded));
+
+    res.json({ images });
+  } catch (error) {
+    console.error('[Upload] Error listing images:', error);
+    res.status(500).json({ error: 'Failed to list images' });
+  }
+});
+
+/**
+ * DELETE /api/upload/image/:filename
+ * Delete an uploaded image file by filename.
+ * Validates the filename to prevent directory traversal attacks.
+ */
+router.delete('/image/:filename', (req, res) => {
+  try {
+    const { filename } = req.params;
+
+    // Prevent directory traversal
+    if (
+      !filename ||
+      filename.includes('..') ||
+      filename.includes('/') ||
+      filename.includes('\\') ||
+      filename.includes('\0')
+    ) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    // Verify it has an allowed image extension
+    const ext = path.extname(filename).toLowerCase();
+    if (!['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(ext)) {
+      return res.status(400).json({ error: 'Invalid file type' });
+    }
+
+    const filePath = path.join(getDataDir(), 'images', filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Image file not found' });
+    }
+
+    fs.unlinkSync(filePath);
+    console.log(`[Upload] Image deleted: ${filename}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Upload] Error deleting image:', error);
+    res.status(500).json({ error: 'Failed to delete image' });
+  }
+});
+
 module.exports = router;
