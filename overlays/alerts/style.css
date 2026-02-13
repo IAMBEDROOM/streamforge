@@ -3,9 +3,11 @@
  *
  * Designed for OBS browser sources:
  *   - Fully transparent background
- *   - GPU-accelerated CSS animations (transform + opacity only)
+ *   - GPU-accelerated animations (via animations.css)
  *   - Text shadows for readability over any stream background
- *   - Purple theme (#6C3CE1)
+ *
+ * Animation keyframes are in animations.css.
+ * Animation playback is handled by animations.js (WAAPI).
  */
 
 /* -----------------------------------------------------------------------
@@ -19,11 +21,11 @@
 }
 
 html, body {
-  width: 100%;
-  height: 100%;
+  width: 1920px;
+  height: 1080px;
   overflow: hidden;
   background: transparent;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -32,93 +34,27 @@ html, body {
    Alert Container
    ----------------------------------------------------------------------- */
 
-.alert-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+#alert-container {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  text-align: center;
   pointer-events: none;
   z-index: 9999;
-  visibility: hidden;
-  opacity: 0;
-}
-
-.alert-container.visible {
-  visibility: visible;
-  opacity: 1;
 }
 
 /* -----------------------------------------------------------------------
-   Alert Box
+   Alert Element
    ----------------------------------------------------------------------- */
 
-.alert-box {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  min-width: 380px;
-  max-width: 600px;
-  background: rgba(15, 15, 25, 0.92);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow:
-    0 8px 32px rgba(108, 60, 225, 0.35),
-    0 2px 8px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(108, 60, 225, 0.3);
+.alert {
+  padding: 30px 50px;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  margin-bottom: 20px;
   will-change: transform, opacity;
-}
-
-/* Purple accent bar on the left */
-.alert-accent {
-  width: 6px;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, #6C3CE1 0%, #9B59F0 50%, #6C3CE1 100%);
-  border-radius: 16px 0 0 16px;
-}
-
-.alert-content {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 24px 28px;
-}
-
-/* -----------------------------------------------------------------------
-   Alert Icon (Placeholder Circle)
-   ----------------------------------------------------------------------- */
-
-.alert-icon {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6C3CE1, #9B59F0);
-  box-shadow: 0 0 20px rgba(108, 60, 225, 0.5);
-}
-
-/* Icon variations by alert type */
-.alert-icon.follow {
-  background: linear-gradient(135deg, #6C3CE1, #9B59F0);
-}
-
-.alert-icon.subscribe {
-  background: linear-gradient(135deg, #E14C3C, #F06959);
-}
-
-.alert-icon.cheer {
-  background: linear-gradient(135deg, #E1A33C, #F0C959);
-}
-
-.alert-icon.raid {
-  background: linear-gradient(135deg, #3CE168, #59F09B);
-}
-
-.alert-icon.donation {
-  background: linear-gradient(135deg, #3CA1E1, #59C9F0);
 }
 
 /* -----------------------------------------------------------------------
@@ -126,137 +62,20 @@ html, body {
    ----------------------------------------------------------------------- */
 
 .alert-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.alert-username {
-  font-size: 22px;
-  font-weight: 700;
-  color: #FFFFFF;
-  text-shadow:
-    0 1px 4px rgba(0, 0, 0, 0.6),
-    0 0 12px rgba(108, 60, 225, 0.4);
-  line-height: 1.2;
-}
-
-.alert-message {
-  font-size: 16px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-weight: 600;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   line-height: 1.3;
 }
 
 /* -----------------------------------------------------------------------
-   Animations — GPU accelerated (transform + opacity only)
+   Alert Image
    ----------------------------------------------------------------------- */
 
-/* Slide In from Left */
-@keyframes slideInLeft {
-  from {
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-/* Slide Out to Right */
-@keyframes slideOutRight {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(120%);
-    opacity: 0;
-  }
-}
-
-/* Fade In */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Fade Out */
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-}
-
-/* Bounce In */
-@keyframes bounceIn {
-  0% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-  70% {
-    transform: scale(0.94);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Pop In */
-@keyframes popIn {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.12);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Animation classes — applied dynamically by script.js */
-.anim-slideIn {
-  animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.anim-slideOut {
-  animation: slideOutRight 0.4s cubic-bezier(0.55, 0, 1, 0.45) forwards;
-}
-
-.anim-fadeIn {
-  animation: fadeIn 0.4s ease-out forwards;
-}
-
-.anim-fadeOut {
-  animation: fadeOut 0.35s ease-in forwards;
-}
-
-.anim-bounceIn {
-  animation: bounceIn 0.6s cubic-bezier(0.28, 0.84, 0.42, 1) forwards;
-}
-
-.anim-popIn {
-  animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.alert-image {
+  max-width: 200px;
+  max-height: 200px;
+  margin-bottom: 20px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }

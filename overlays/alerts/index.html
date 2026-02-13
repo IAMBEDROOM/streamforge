@@ -6,29 +6,23 @@
   <title>StreamForge — Alerts Overlay</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="animations.css">
 </head>
 <body>
-  <!-- Alert container — hidden by default, positioned center screen -->
-  <div id="alert-container" class="alert-container" aria-hidden="true">
-    <div class="alert-box">
-      <div class="alert-accent"></div>
-      <div class="alert-content">
-        <div class="alert-icon" id="alert-icon"></div>
-        <div class="alert-text">
-          <span class="alert-username" id="alert-username"></span>
-          <span class="alert-message" id="alert-message"></span>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Alert container — alerts are dynamically added/removed here -->
+  <div id="alert-container"></div>
 
   <!-- Socket.io client (vendored local copy) -->
   <script src="../shared/socket.io.min.js"></script>
   <!-- StreamForge shared socket wrapper -->
   <script src="../shared/socket-client.js"></script>
-  <!-- Alert overlay logic -->
-  <script src="script.js"></script>
+  <!-- Howler.js for alert sound playback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+  <!-- Animation engine (WAAPI) -->
+  <script src="animations.js"></script>
+  <!-- Alert display logic -->
+  <script src="alert.js"></script>
 </body>
 </html>

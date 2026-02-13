@@ -53,7 +53,7 @@ const alertSchema = z.object({
     .min(1000, "Minimum 1000ms")
     .max(60000, "Maximum 60000ms"),
   animation_in: z.enum(["slideIn", "fadeIn", "bounceIn", "popIn"]),
-  animation_out: z.enum(["slideOut", "fadeOut", "bounceOut"]),
+  animation_out: z.enum(["slideOut", "fadeOut", "bounceOut", "popOut"]),
   sound_path: z.string().nullable(),
   sound_volume: z.number().min(0).max(1),
   image_path: z.string().nullable(),
@@ -96,6 +96,7 @@ const ANIMATIONS_OUT = [
   { value: "slideOut", label: "Slide Out" },
   { value: "fadeOut", label: "Fade Out" },
   { value: "bounceOut", label: "Bounce Out" },
+  { value: "popOut", label: "Pop Out" },
 ];
 
 const FONT_FAMILIES = [

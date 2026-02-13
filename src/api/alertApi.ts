@@ -22,7 +22,7 @@ export type AlertType =
   | "custom";
 
 export type AnimationIn = "slideIn" | "fadeIn" | "bounceIn" | "popIn";
-export type AnimationOut = "slideOut" | "fadeOut" | "bounceOut";
+export type AnimationOut = "slideOut" | "fadeOut" | "bounceOut" | "popOut";
 
 export interface Alert {
   id: string;

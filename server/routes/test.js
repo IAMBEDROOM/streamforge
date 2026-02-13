@@ -14,6 +14,7 @@
 const express = require('express');
 const router = express.Router();
 const alertQueue = require('../alerts/queue');
+const alertDb = require('../alerts/database');
 
 // ---------------------------------------------------------------------------
 // Default test data per alert type
@@ -65,9 +66,12 @@ const DEFAULT_USERNAMES = [
  * POST /api/test-alert
  *
  * Enqueue a test alert. Accepts optional body fields:
- *   { type, username, displayName, amount, message }
+ *   { type, username, displayName, amount, message,
+ *     animation_in, animation_out }
  *
- * If fields are omitted, sensible defaults are applied.
+ * If the user has saved an alert config for this type in the dashboard,
+ * those settings are used. Otherwise sensible defaults are applied.
+ * Body fields override both saved and default config.
  */
 router.post('/', (req, res) => {
   const body = req.body || {};
@@ -75,22 +79,66 @@ router.post('/', (req, res) => {
   const username = body.username || DEFAULT_USERNAMES[Math.floor(Math.random() * DEFAULT_USERNAMES.length)];
   const typeDefaults = TEST_DEFAULTS[type] || TEST_DEFAULTS.follow;
 
+  // Try to load saved alert config from the database for this type
+  let savedConfig = {};
+  try {
+    const savedAlerts = alertDb.getAlertsByType(type);
+    // Use the first enabled alert for this type, or the first one if none enabled
+    const savedAlert = savedAlerts.find(a => a.enabled === 1) || savedAlerts[0];
+    if (savedAlert) {
+      savedConfig = {
+        message_template: savedAlert.message_template,
+        duration_ms: savedAlert.duration_ms,
+        animation_in: savedAlert.animation_in,
+        animation_out: savedAlert.animation_out,
+        sound_path: savedAlert.sound_path,
+        sound_volume: savedAlert.sound_volume,
+        image_path: savedAlert.image_path,
+        font_family: savedAlert.font_family,
+        font_size: savedAlert.font_size,
+        text_color: savedAlert.text_color,
+        bg_color: savedAlert.bg_color,
+        custom_css: savedAlert.custom_css,
+        tts_enabled: savedAlert.tts_enabled,
+      };
+      // Remove null/undefined values so they don't override defaults
+      for (const key of Object.keys(savedConfig)) {
+        if (savedConfig[key] === null || savedConfig[key] === undefined) {
+          delete savedConfig[key];
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[TestAlert] Could not load saved alert config, using defaults:', err.message);
+  }
+
+  // Build config: hardcoded defaults → saved DB config → body overrides
+  const config = {
+    // Layer 1: hardcoded defaults
+    ...typeDefaults,
+    sound_volume: 0.8,
+    font_family: 'Poppins',
+    font_size: 48,
+    text_color: '#FFFFFF',
+    bg_color: null,
+    custom_css: '',
+    tts_enabled: 0,
+    // Layer 2: saved config from dashboard
+    ...savedConfig,
+  };
+
+  // Layer 3: explicit body overrides (only animation fields for now)
+  if (body.animation_in) config.animation_in = body.animation_in;
+  if (body.animation_out) config.animation_out = body.animation_out;
+  if (body.duration_ms) config.duration_ms = body.duration_ms;
+
   const alertData = {
     type,
     username,
     displayName: body.displayName || username,
     amount: body.amount || (type === 'cheer' ? 100 : type === 'raid' ? 50 : type === 'donation' ? 5 : null),
     message: body.message || null,
-    config: {
-      ...typeDefaults,
-      sound_volume: 0.8,
-      font_family: 'Poppins',
-      font_size: 48,
-      text_color: '#FFFFFF',
-      bg_color: null,
-      custom_css: '',
-      tts_enabled: 0,
-    },
+    config,
   };
 
   const alertId = alertQueue.enqueueAlert(alertData);
