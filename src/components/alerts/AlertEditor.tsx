@@ -21,19 +21,16 @@ import {
   X,
   Upload,
   ImageIcon,
-  Music,
   ChevronDown,
   ChevronRight,
   AlertTriangle,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Alert, AlertType, AlertInput } from "../../api/alertApi";
-import {
-  uploadSound,
-  uploadImage,
-} from "../../api/alertApi";
+import { uploadImageFromPath } from "../../api/alertApi";
 import { getServerUrl } from "../../api/config";
 import AlertPreview from "./AlertPreview";
+import SoundPicker from "./SoundPicker";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -298,7 +295,6 @@ export default function AlertEditor({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [soundFilename, setSoundFilename] = useState<string | null>(null);
   const [imageFilename, setImageFilename] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -327,15 +323,11 @@ export default function AlertEditor({
   useEffect(() => {
     if (alert) {
       reset(alertToFormValues(alert));
-      setSoundFilename(
-        alert.sound_path ? alert.sound_path.split("/").pop() || null : null
-      );
       setImageFilename(
         alert.image_path ? alert.image_path.split("/").pop() || null : null
       );
     } else if (isCreating) {
       reset(DEFAULT_VALUES);
-      setSoundFilename(null);
       setImageFilename(null);
     }
   }, [alert, isCreating, reset]);
@@ -372,37 +364,6 @@ export default function AlertEditor({
     }
   }, [alert, onDelete]);
 
-  const handleChooseSound = useCallback(async () => {
-    setUploadError(null);
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "Audio", extensions: ["mp3", "wav", "ogg"] }],
-      });
-
-      if (selected) {
-        // Tauri v2 open() returns a string path or null
-        const filePath = typeof selected === "string" ? selected : (selected as { path?: string })?.path;
-        if (!filePath) return;
-
-        // Read the file and create a File object for upload
-        const response = await fetch(`asset://localhost/${filePath}`);
-        const blob = await response.blob();
-        const filename = filePath.split(/[/\\]/).pop() || "sound.mp3";
-        const file = new File([blob], filename, { type: blob.type });
-
-        const result = await uploadSound(file);
-        setValue("sound_path", result.path, { shouldDirty: true });
-        setSoundFilename(result.filename);
-      }
-    } catch (err) {
-      // If Tauri dialog fails (e.g. running in browser dev mode), show error
-      setUploadError(
-        `Sound upload failed: ${err instanceof Error ? err.message : "Unknown error"}`
-      );
-    }
-  }, [setValue]);
-
   const handleChooseImage = useCallback(async () => {
     setUploadError(null);
     try {
@@ -417,12 +378,8 @@ export default function AlertEditor({
         const filePath = typeof selected === "string" ? selected : (selected as { path?: string })?.path;
         if (!filePath) return;
 
-        const response = await fetch(`asset://localhost/${filePath}`);
-        const blob = await response.blob();
-        const filename = filePath.split(/[/\\]/).pop() || "image.png";
-        const file = new File([blob], filename, { type: blob.type });
-
-        const result = await uploadImage(file);
+        // Send the local path to the server — the sidecar copies it directly
+        const result = await uploadImageFromPath(filePath);
         setValue("image_path", result.path, { shouldDirty: true });
         setImageFilename(result.filename);
       }
@@ -431,11 +388,6 @@ export default function AlertEditor({
         `Image upload failed: ${err instanceof Error ? err.message : "Unknown error"}`
       );
     }
-  }, [setValue]);
-
-  const clearSound = useCallback(() => {
-    setValue("sound_path", null, { shouldDirty: true });
-    setSoundFilename(null);
   }, [setValue]);
 
   const clearImage = useCallback(() => {
@@ -580,33 +532,13 @@ export default function AlertEditor({
           Sound
         </h3>
 
-        <div className="flex items-center gap-3">
-          <Music className="h-4 w-4 shrink-0 text-gray-500" />
-          {watchedValues.sound_path ? (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-300">
-                {soundFilename || watchedValues.sound_path}
-              </span>
-              <button
-                type="button"
-                onClick={clearSound}
-                className="rounded p-1 text-gray-500 hover:bg-panel-hover hover:text-gray-300"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ) : (
-            <span className="text-sm text-gray-500 italic">No sound</span>
-          )}
-          <button
-            type="button"
-            onClick={handleChooseSound}
-            className="ml-auto flex items-center gap-1.5 rounded-lg border border-panel-border bg-panel-bg px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-sf-primary hover:text-white"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            Choose File
-          </button>
-        </div>
+        <SoundPicker
+          value={watchedValues.sound_path}
+          onChange={(path) =>
+            setValue("sound_path", path, { shouldDirty: true })
+          }
+          volume={watchedValues.sound_volume}
+        />
 
         {/* Volume */}
         <Field label={`Volume: ${Math.round(watchedValues.sound_volume * 100)}%`}>

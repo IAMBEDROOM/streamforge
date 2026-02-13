@@ -93,6 +93,13 @@ export interface UploadResponse {
   filename: string;
 }
 
+export interface SoundInfo {
+  filename: string;
+  path: string;
+  size: number;
+  uploaded: string;
+}
+
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
@@ -193,7 +200,7 @@ export async function triggerTestAlertQueue(
 // File Uploads
 // ---------------------------------------------------------------------------
 
-/** Upload a sound file. Returns the server path. */
+/** Upload a sound file via multipart. Returns the server path. */
 export async function uploadSound(file: File): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append("sound", file);
@@ -205,7 +212,33 @@ export async function uploadSound(file: File): Promise<UploadResponse> {
   return handleResponse<UploadResponse>(res);
 }
 
-/** Upload an image file. Returns the server path. */
+/** Upload a sound by sending its local file path to the server (server copies it). */
+export async function uploadSoundFromPath(
+  filePath: string
+): Promise<UploadResponse> {
+  const res = await fetch(`${serverUrl()}/api/upload/sound/path`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filePath }),
+  });
+  return handleResponse<UploadResponse>(res);
+}
+
+/** List all uploaded sound files. */
+export async function listSounds(): Promise<{ sounds: SoundInfo[] }> {
+  const res = await fetch(`${serverUrl()}/api/upload/sounds`);
+  return handleResponse<{ sounds: SoundInfo[] }>(res);
+}
+
+/** Delete an uploaded sound file by filename. */
+export async function deleteSound(filename: string): Promise<void> {
+  const res = await fetch(`${serverUrl()}/api/upload/sound/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+  });
+  await handleResponse(res);
+}
+
+/** Upload an image file via multipart. Returns the server path. */
 export async function uploadImage(file: File): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append("image", file);
@@ -213,6 +246,18 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
   const res = await fetch(`${serverUrl()}/api/upload/image`, {
     method: "POST",
     body: formData,
+  });
+  return handleResponse<UploadResponse>(res);
+}
+
+/** Upload an image by sending its local file path to the server (server copies it). */
+export async function uploadImageFromPath(
+  filePath: string
+): Promise<UploadResponse> {
+  const res = await fetch(`${serverUrl()}/api/upload/image/path`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ filePath }),
   });
   return handleResponse<UploadResponse>(res);
 }
