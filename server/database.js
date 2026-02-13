@@ -101,8 +101,22 @@ function initDatabase() {
     console.log(`[Database] Created data directory: ${dbDir}`);
   }
 
-  // Open (or create) the database
-  db = new Database(dbPath);
+  // Open (or create) the database.
+  // When running inside a pkg-compiled binary, the native .node addon
+  // must be loaded from the filesystem (next to the executable) rather
+  // than from pkg's virtual snapshot filesystem.
+  const dbOptions = {};
+  if (typeof process.pkg !== 'undefined') {
+    const addonPath = path.join(path.dirname(process.execPath), 'better_sqlite3.node');
+    if (fs.existsSync(addonPath)) {
+      dbOptions.nativeBinding = addonPath;
+      console.log(`[Database] Using native binding: ${addonPath}`);
+    } else {
+      console.error(`[Database] Native binding not found at: ${addonPath}`);
+      console.error('[Database] Run "node scripts/build-server.js --current" to rebuild the sidecar with native addons.');
+    }
+  }
+  db = new Database(dbPath, dbOptions);
   console.log(`[Database] Opened database: ${dbPath}`);
 
   // Enable WAL mode for better concurrent read performance

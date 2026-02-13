@@ -124,6 +124,7 @@ fn start_sidecar(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(ServerPort(Arc::new(Mutex::new(None))))
         .manage(SidecarProcess(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![get_server_port])

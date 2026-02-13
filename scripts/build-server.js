@@ -12,7 +12,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync, renameSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, renameSync, unlinkSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -72,7 +72,7 @@ if (!existsSync(BINARIES_DIR)) {
 
 // Run pkg
 const targetFlag = pkgTargets ? `--target ${pkgTargets}` : '';
-const cmd = `npx pkg . ${targetFlag} --out-path "${BINARIES_DIR}"`;
+const cmd = `npx @yao-pkg/pkg . ${targetFlag} --out-path "${BINARIES_DIR}"`;
 console.log(`\n> ${cmd}\n`);
 
 try {
@@ -127,4 +127,36 @@ if (renamed === 0) {
   console.log('Files in binaries directory:', files);
 } else {
   console.log(`\nDone! ${renamed} binary(ies) built and renamed.`);
+}
+
+// ---------------------------------------------------------------------------
+// Copy native addon (better-sqlite3)
+// ---------------------------------------------------------------------------
+// pkg cannot bundle native .node addons inside its snapshot filesystem.
+// They must be placed next to the compiled binary so Node can dlopen them.
+
+console.log('\nCopying native addons...');
+
+const nativeAddon = join(
+  SERVER_DIR, 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node'
+);
+
+if (existsSync(nativeAddon)) {
+  // Copy to the production binaries directory
+  const dest = join(BINARIES_DIR, 'better_sqlite3.node');
+  copyFileSync(nativeAddon, dest);
+  console.log(`  better_sqlite3.node -> ${dest}`);
+
+  // Also copy to the Tauri dev runtime directory (tauri dev runs the
+  // sidecar from target/debug/binaries/, not src-tauri/binaries/)
+  const devBinDir = join(ROOT, 'src-tauri', 'target', 'debug', 'binaries');
+  if (!existsSync(devBinDir)) {
+    mkdirSync(devBinDir, { recursive: true });
+  }
+  const devDest = join(devBinDir, 'better_sqlite3.node');
+  copyFileSync(nativeAddon, devDest);
+  console.log(`  better_sqlite3.node -> ${devDest}`);
+} else {
+  console.warn('  Warning: better_sqlite3.node not found — database will not work in the compiled sidecar.');
+  console.warn(`  Expected at: ${nativeAddon}`);
 }

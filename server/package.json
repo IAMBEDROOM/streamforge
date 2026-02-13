@@ -8,9 +8,9 @@
     "start": "node index.js",
     "dev": "node index.js",
     "build": "pkg . --out-path ../src-tauri/binaries",
-    "build:win": "pkg . --target node20-win-x64 --out-path ../src-tauri/binaries",
-    "build:mac": "pkg . --target node20-macos-x64,node20-macos-arm64 --out-path ../src-tauri/binaries",
-    "build:linux": "pkg . --target node20-linux-x64 --out-path ../src-tauri/binaries"
+    "build:win": "npx @yao-pkg/pkg . --target node20-win-x64 --out-path ../src-tauri/binaries",
+    "build:mac": "npx @yao-pkg/pkg . --target node20-macos-x64,node20-macos-arm64 --out-path ../src-tauri/binaries",
+    "build:linux": "npx @yao-pkg/pkg . --target node20-linux-x64 --out-path ../src-tauri/binaries"
   },
   "pkg": {
     "targets": [
@@ -28,6 +28,7 @@
     "better-sqlite3": "^12.6.2",
     "cors": "^2.8.0",
     "express": "^4.18.0",
+    "multer": "^2.0.2",
     "socket.io": "^4.7.0",
     "uuid": "^13.0.0"
   },

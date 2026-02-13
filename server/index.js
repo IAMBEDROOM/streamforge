@@ -26,6 +26,7 @@ const database = require('./database');
 const alertsRouter = require('./routes/alerts');
 const settingsRouter = require('./routes/settings');
 const testAlertRouter = require('./routes/test');
+const uploadRouter = require('./routes/upload');
 const alertQueue = require('./alerts/queue');
 
 const fs = require('fs');
@@ -511,9 +512,14 @@ app.post('/api/test/alert-overlay', (req, res) => {
 app.use('/api/alerts', alertsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/test-alert', testAlertRouter);
+app.use('/api/upload', uploadRouter);
 
 // Serve overlay browser source pages (HTML/CSS/JS loaded by OBS)
 app.use('/overlays', express.static(path.join(projectRoot, 'overlays')));
+
+// Serve uploaded assets (sounds, images) from the streamforge-data directory
+app.use('/sounds', express.static(path.join(database.getAppDataDir(), 'streamforge-data', 'sounds')));
+app.use('/images', express.static(path.join(database.getAppDataDir(), 'streamforge-data', 'images')));
 
 // 404 handler for unknown API routes
 app.use('/api', (req, res) => {
