@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Bell,
+  Clock,
   Puzzle,
   Palette,
   Settings,
@@ -16,6 +17,7 @@ import type { ConnectionStatus } from "../hooks/useServerConnection";
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/alerts", icon: Bell, label: "Alerts" },
+  { to: "/history", icon: Clock, label: "History" },
   { to: "/widgets", icon: Puzzle, label: "Widgets" },
   { to: "/themes", icon: Palette, label: "Themes" },
   { to: "/settings", icon: Settings, label: "Settings" },

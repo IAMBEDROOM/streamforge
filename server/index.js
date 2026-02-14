@@ -29,6 +29,9 @@ const testAlertRouter = require('./routes/test');
 const uploadRouter = require('./routes/upload');
 const alertQueue = require('./alerts/queue');
 const alertsDb = require('./alerts/database');
+const eventsRouter = require('./routes/events');
+const cron = require('node-cron');
+const { pruneOldEvents } = require('./alerts/logger');
 
 const fs = require('fs');
 
@@ -550,6 +553,7 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/test-alert', testAlertRouter);
 app.use('/api/upload', uploadRouter);
+app.use('/api/events', eventsRouter);
 
 // Serve overlay browser source pages (HTML/CSS/JS loaded by OBS)
 app.use('/overlays', express.static(path.join(projectRoot, 'overlays')));
@@ -640,6 +644,19 @@ async function startServer() {
       console.error('[Server] Failed to initialize database:', dbErr.message);
       console.error('[Server] The server will start without database support.');
     }
+
+    // Prune old event logs on startup (clears any backlog from downtime)
+    try {
+      pruneOldEvents();
+    } catch (pruneErr) {
+      console.error('[Server] Startup pruning failed:', pruneErr.message);
+    }
+
+    // Schedule daily pruning at 3 AM
+    cron.schedule('0 3 * * *', () => {
+      console.log('[Cron] Running event log pruning...');
+      pruneOldEvents();
+    });
 
     const port = await findAvailablePort();
 

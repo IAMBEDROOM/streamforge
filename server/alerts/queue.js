@@ -12,6 +12,7 @@
  */
 
 const { v4: uuidv4 } = require('uuid');
+const logger = require('./logger');
 
 // ---------------------------------------------------------------------------
 // Internal State
@@ -152,7 +153,17 @@ function enqueueAlert(alertData) {
     `queue length: ${queue.length}, processing: ${isProcessing}`
   );
 
-  // TODO: Log triggered alert to event_log table (Task 2.8)
+  // Log the triggered alert to the event_log table
+  logger.logEvent({
+    platform: alertData.platform || 'internal',
+    event_type: alert.type,
+    username: alert.username,
+    display_name: alert.displayName,
+    amount: alert.amount,
+    message: alert.message,
+    metadata: alertData.metadata || {},
+    alert_fired: 1,
+  });
 
   // If nothing is currently playing, start processing
   if (!isProcessing) {

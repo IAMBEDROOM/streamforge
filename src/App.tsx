@@ -3,6 +3,7 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Alerts from "./pages/Alerts";
 import Widgets from "./pages/Widgets";
+import History from "./pages/History";
 import Themes from "./pages/Themes";
 import Settings from "./pages/Settings";
 import { useServerConnection } from "./hooks/useServerConnection";
@@ -89,6 +90,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/alerts" element={<Alerts />} />
+          <Route path="/history" element={<History />} />
           <Route path="/widgets" element={<Widgets />} />
           <Route path="/themes" element={<Themes />} />
           <Route path="/settings" element={<Settings />} />

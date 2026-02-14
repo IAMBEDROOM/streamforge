@@ -248,6 +248,116 @@ function setSetting(key, value) {
 }
 
 // ---------------------------------------------------------------------------
+// Event Log Functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Insert an event log record into the event_log table.
+ *
+ * @param {object} logData - Event log fields
+ * @param {string} logData.id - UUID
+ * @param {string} logData.platform - twitch | youtube | stripe | internal
+ * @param {string} logData.event_type - follow | subscribe | cheer | raid | donation | chat | custom
+ * @param {string} logData.username - Viewer/user who triggered the event
+ * @param {string} logData.display_name - Formatted display name
+ * @param {number|null} logData.amount - Monetary amount or bit count
+ * @param {string|null} logData.message - Associated message
+ * @param {string} logData.metadata - JSON string of platform-specific data
+ * @param {number} logData.alert_fired - 1 if an alert was triggered
+ * @param {string} logData.timestamp - ISO timestamp
+ */
+function createEventLog(logData) {
+  const stmt = db.prepare(`
+    INSERT INTO event_log (id, platform, event_type, username, display_name, amount, message, metadata, alert_fired, timestamp)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  return stmt.run(
+    logData.id,
+    logData.platform,
+    logData.event_type,
+    logData.username,
+    logData.display_name,
+    logData.amount,
+    logData.message,
+    logData.metadata,
+    logData.alert_fired,
+    logData.timestamp
+  );
+}
+
+/**
+ * Query event logs with optional filtering.
+ *
+ * @param {object} [options]
+ * @param {number}  [options.limit=100]           - Max rows to return
+ * @param {string}  [options.event_type]          - Filter by event type
+ * @param {string}  [options.platform]            - Filter by platform
+ * @param {boolean} [options.alert_fired_only]    - Only return rows where alert_fired = 1
+ * @param {string}  [options.search]              - Search username or message (LIKE %term%)
+ * @returns {object[]} Array of event log rows
+ */
+function getEventLogs(options = {}) {
+  let query = 'SELECT * FROM event_log WHERE 1=1';
+  const params = [];
+
+  if (options.event_type) {
+    query += ' AND event_type = ?';
+    params.push(options.event_type);
+  }
+
+  if (options.platform) {
+    query += ' AND platform = ?';
+    params.push(options.platform);
+  }
+
+  if (options.alert_fired_only) {
+    query += ' AND alert_fired = 1';
+  }
+
+  if (options.search) {
+    query += ' AND (username LIKE ? OR display_name LIKE ? OR message LIKE ?)';
+    const term = `%${options.search}%`;
+    params.push(term, term, term);
+  }
+
+  query += ' ORDER BY timestamp DESC LIMIT ?';
+  params.push(options.limit || 100);
+
+  const stmt = db.prepare(query);
+  return stmt.all(...params);
+}
+
+/**
+ * Query event logs within a date range.
+ *
+ * @param {string} startDate - ISO timestamp (inclusive)
+ * @param {string} endDate - ISO timestamp (inclusive)
+ * @returns {object[]} Array of event log rows
+ */
+function getEventLogsByDateRange(startDate, endDate) {
+  const stmt = db.prepare(`
+    SELECT * FROM event_log
+    WHERE timestamp >= ? AND timestamp <= ?
+    ORDER BY timestamp DESC
+  `);
+
+  return stmt.all(startDate, endDate);
+}
+
+/**
+ * Delete event log records older than the given timestamp.
+ *
+ * @param {string} timestamp - ISO timestamp cutoff
+ * @returns {number} Number of deleted rows
+ */
+function deleteEventLogsBefore(timestamp) {
+  const stmt = db.prepare('DELETE FROM event_log WHERE timestamp < ?');
+  const result = stmt.run(timestamp);
+  return result.changes;
+}
+
+// ---------------------------------------------------------------------------
 // Database Access
 // ---------------------------------------------------------------------------
 
@@ -287,4 +397,10 @@ module.exports = {
   // Settings
   getSetting,
   setSetting,
+
+  // Event Log
+  createEventLog,
+  getEventLogs,
+  getEventLogsByDateRange,
+  deleteEventLogsBefore,
 };
