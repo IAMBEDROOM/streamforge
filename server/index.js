@@ -30,6 +30,7 @@ const uploadRouter = require('./routes/upload');
 const alertQueue = require('./alerts/queue');
 const alertsDb = require('./alerts/database');
 const eventsRouter = require('./routes/events');
+const templatesRouter = require('./routes/templates');
 const cron = require('node-cron');
 const { pruneOldEvents } = require('./alerts/logger');
 
@@ -558,6 +559,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/test-alert', testAlertRouter);
 app.use('/api/upload', uploadRouter);
 app.use('/api/events', eventsRouter);
+app.use('/api/templates', templatesRouter);
 
 // Serve overlay browser source pages (HTML/CSS/JS loaded by OBS)
 app.use('/overlays', express.static(path.join(projectRoot, 'overlays')));

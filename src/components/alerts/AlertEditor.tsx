@@ -21,14 +21,20 @@ import {
   ChevronDown,
   ChevronRight,
   AlertTriangle,
+  FolderOpen,
+  BookmarkPlus,
+  Check,
 } from "lucide-react";
 import type { Alert, AlertType, AlertInput } from "../../api/alertApi";
+import { createTemplate } from "../../api/templateApi";
+import type { TemplateData } from "../../api/templateApi";
 
 import AlertPreview from "./AlertPreview";
 import SoundPicker from "./SoundPicker";
 import ImagePicker from "./ImagePicker";
 import VariationList from "./VariationList";
 import TTSConfig from "./TTSConfig";
+import TemplatePicker from "./TemplatePicker";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -306,6 +312,14 @@ export default function AlertEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Template state
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDesc, setTemplateDesc] = useState("");
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
+
 
   const {
     register,
@@ -369,7 +383,98 @@ export default function AlertEditor({
     }
   }, [alert, onDelete]);
 
+  // -------------------------------------------------------------------------
+  // Template Handlers
+  // -------------------------------------------------------------------------
 
+  /** Apply a template's config to the form, nulling sound/image paths. */
+  const handleLoadTemplate = useCallback(
+    (config: TemplateData) => {
+      const formValues: AlertFormValues = {
+        name: config.name || DEFAULT_VALUES.name,
+        type: config.type || DEFAULT_VALUES.type,
+        enabled: DEFAULT_VALUES.enabled, // keep enabled at default
+        message_template:
+          config.message_template || DEFAULT_VALUES.message_template,
+        duration_ms: config.duration_ms || DEFAULT_VALUES.duration_ms,
+        animation_in:
+          (config.animation_in as AlertFormValues["animation_in"]) ||
+          DEFAULT_VALUES.animation_in,
+        animation_out:
+          (config.animation_out as AlertFormValues["animation_out"]) ||
+          DEFAULT_VALUES.animation_out,
+        sound_path: null, // templates don't carry user-specific assets
+        sound_volume: config.sound_volume ?? DEFAULT_VALUES.sound_volume,
+        image_path: null, // templates don't carry user-specific assets
+        font_family: config.font_family || DEFAULT_VALUES.font_family,
+        font_size: config.font_size ?? DEFAULT_VALUES.font_size,
+        text_color: config.text_color || DEFAULT_VALUES.text_color,
+        bg_color: config.bg_color ?? DEFAULT_VALUES.bg_color,
+        custom_css: config.custom_css ?? DEFAULT_VALUES.custom_css,
+        min_amount: config.min_amount ?? DEFAULT_VALUES.min_amount,
+        tts_enabled: config.tts_enabled === 1,
+        tts_voice: config.tts_voice ?? DEFAULT_VALUES.tts_voice,
+        tts_rate: config.tts_rate ?? DEFAULT_VALUES.tts_rate,
+        tts_pitch: config.tts_pitch ?? DEFAULT_VALUES.tts_pitch,
+        tts_volume: config.tts_volume ?? DEFAULT_VALUES.tts_volume,
+      };
+      reset(formValues);
+    },
+    [reset]
+  );
+
+  /** Save the current form state as a new template. */
+  const handleSaveAsTemplate = useCallback(async () => {
+    if (!templateName.trim()) return;
+
+    setIsSavingTemplate(true);
+    setTemplateSaved(false);
+    try {
+      const values = watchedValues;
+      const templateData: TemplateData = {
+        type: values.type,
+        name: values.name,
+        message_template: values.message_template,
+        duration_ms: values.duration_ms,
+        animation_in: values.animation_in,
+        animation_out: values.animation_out,
+        sound_path: null, // don't store user-specific paths
+        sound_volume: values.sound_volume,
+        image_path: null, // don't store user-specific paths
+        font_family: values.font_family,
+        font_size: values.font_size,
+        text_color: values.text_color,
+        bg_color: values.bg_color,
+        custom_css: values.custom_css || "",
+        min_amount: values.min_amount ?? 0,
+        tts_enabled: values.tts_enabled ? 1 : 0,
+        tts_voice: values.tts_voice,
+        tts_rate: values.tts_rate,
+        tts_pitch: values.tts_pitch,
+        tts_volume: values.tts_volume,
+      };
+
+      await createTemplate({
+        name: templateName.trim(),
+        description: templateDesc.trim(),
+        author: "User",
+        template_data: templateData,
+      });
+
+      setTemplateSaved(true);
+      // Auto-close after brief success feedback
+      setTimeout(() => {
+        setSaveTemplateOpen(false);
+        setTemplateName("");
+        setTemplateDesc("");
+        setTemplateSaved(false);
+      }, 1200);
+    } catch (err) {
+      console.error("[AlertEditor] Failed to save template:", err);
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  }, [templateName, templateDesc, watchedValues]);
 
   // -------------------------------------------------------------------------
   // Render
@@ -382,9 +487,34 @@ export default function AlertEditor({
         <h2 className="text-lg font-semibold text-white">
           {isCreating ? "New Alert" : "Edit Alert"}
         </h2>
-        {isDirty && (
-          <span className="text-xs text-yellow-400">Unsaved changes</span>
-        )}
+        <div className="flex items-center gap-2">
+          {isDirty && (
+            <span className="mr-2 text-xs text-yellow-400">
+              Unsaved changes
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setTemplatePickerOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-panel-border px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-panel-hover hover:text-white"
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            Load Template
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTemplateName(watchedValues.name || "");
+              setTemplateDesc("");
+              setTemplateSaved(false);
+              setSaveTemplateOpen(true);
+            }}
+            className="flex items-center gap-1.5 rounded-lg border border-panel-border px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-panel-hover hover:text-white"
+          >
+            <BookmarkPlus className="h-3.5 w-3.5" />
+            Save as Template
+          </button>
+        </div>
       </div>
 
       {/* ----------------------------------------------------------------- */}
@@ -835,9 +965,95 @@ export default function AlertEditor({
                 </div>
               </Dialog.Content>
             </Dialog.Portal>
-          </Dialog.Root>
+           </Dialog.Root>
         )}
       </div>
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Template Picker Dialog */}
+      {/* ----------------------------------------------------------------- */}
+      <TemplatePicker
+        open={templatePickerOpen}
+        onOpenChange={setTemplatePickerOpen}
+        onSelect={handleLoadTemplate}
+      />
+
+      {/* ----------------------------------------------------------------- */}
+      {/* Save as Template Dialog */}
+      {/* ----------------------------------------------------------------- */}
+      <Dialog.Root open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-panel-border bg-panel-surface p-6 shadow-2xl">
+            <Dialog.Title className="mb-1 text-base font-semibold text-white">
+              Save as Template
+            </Dialog.Title>
+            <Dialog.Description className="mb-4 text-sm text-gray-400">
+              Save this alert configuration as a reusable template.
+            </Dialog.Description>
+
+            {templateSaved ? (
+              <div className="flex flex-col items-center gap-2 py-6 text-green-400">
+                <Check className="h-8 w-8" />
+                <span className="text-sm font-medium">Template saved!</span>
+              </div>
+            ) : (
+              <>
+                <div className="mb-4 space-y-3">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                      Template Name
+                    </label>
+                    <input
+                      type="text"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="e.g. Premium Sub Alert"
+                      className="w-full rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-sm text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-sf-primary"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-gray-300">
+                      Description
+                      <span className="ml-1 text-xs font-normal text-gray-500">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={templateDesc}
+                      onChange={(e) => setTemplateDesc(e.target.value)}
+                      placeholder="Short description of this template"
+                      className="w-full rounded-lg border border-panel-border bg-panel-bg px-3 py-2 text-sm text-gray-200 outline-none transition-colors placeholder:text-gray-600 focus:border-sf-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Dialog.Close asChild>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-panel-border px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-panel-hover"
+                    >
+                      Cancel
+                    </button>
+                  </Dialog.Close>
+                  <button
+                    type="button"
+                    onClick={handleSaveAsTemplate}
+                    disabled={!templateName.trim() || isSavingTemplate}
+                    className="flex items-center gap-2 rounded-lg bg-sf-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-sf-primary-dark disabled:opacity-50"
+                  >
+                    <BookmarkPlus className="h-4 w-4" />
+                    {isSavingTemplate ? "Saving..." : "Save Template"}
+                  </button>
+                </div>
+              </>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </form>
   );
 }
