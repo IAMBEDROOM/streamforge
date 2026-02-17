@@ -216,6 +216,10 @@ const namespaceEvents = {
                 custom_css: matchedAlert.custom_css || data.config?.custom_css,
                 duration_ms: matchedAlert.duration_ms || data.config?.duration_ms,
                 tts_enabled: matchedAlert.tts_enabled,
+                tts_voice: matchedAlert.tts_voice !== null ? matchedAlert.tts_voice : data.config?.tts_voice,
+                tts_rate: matchedAlert.tts_rate !== null ? matchedAlert.tts_rate : data.config?.tts_rate,
+                tts_pitch: matchedAlert.tts_pitch !== null ? matchedAlert.tts_pitch : data.config?.tts_pitch,
+                tts_volume: matchedAlert.tts_volume !== null ? matchedAlert.tts_volume : data.config?.tts_volume,
               };
               if (matchedAlert._variation_id) {
                 console.log(

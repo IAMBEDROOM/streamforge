@@ -23,6 +23,7 @@ const ALERT_COLUMNS = [
   'animation_in', 'animation_out', 'sound_path', 'sound_volume',
   'image_path', 'font_family', 'font_size', 'text_color', 'bg_color',
   'custom_css', 'min_amount', 'tts_enabled',
+  'tts_voice', 'tts_rate', 'tts_pitch', 'tts_volume',
 ];
 
 /**
@@ -49,6 +50,10 @@ const ALERT_DEFAULTS = {
   font_size: 24,
   text_color: '#FFFFFF',
   tts_enabled: 0,
+  tts_voice: null,
+  tts_rate: 1.0,
+  tts_pitch: 1.0,
+  tts_volume: 1.0,
 };
 
 // ---------------------------------------------------------------------------

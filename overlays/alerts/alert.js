@@ -9,6 +9,7 @@
  *   - StreamForge.connect() from ../shared/socket-client.js
  *   - Animations.playEntry() / Animations.playExit() from animations.js
  *   - Howl from howler.js (CDN)
+ *   - window.ttsManager from tts.js (Web Speech API)
  *
  * Server payload shape (from server/alerts/queue.js):
  *   {
@@ -16,7 +17,8 @@
  *     config: {
  *       message_template, duration_ms, animation_in, animation_out,
  *       sound_path, sound_volume, image_path, font_family, font_size,
- *       text_color, bg_color, custom_css, tts_enabled
+ *       text_color, bg_color, custom_css, tts_enabled,
+ *       tts_voice, tts_rate, tts_pitch, tts_volume
  *     }
  *   }
  */
@@ -105,6 +107,75 @@
     });
 
     currentSound.play();
+  }
+
+  // -----------------------------------------------------------------------
+  // TTS Message Sanitisation
+  // -----------------------------------------------------------------------
+
+  /**
+   * Sanitise a message for text-to-speech.
+   * Removes URLs, emote patterns, and excessive punctuation that sound
+   * unnatural when spoken aloud. Truncates very long messages.
+   *
+   * @param {string} message - Raw user message
+   * @returns {string} Cleaned message suitable for TTS
+   */
+  function sanitizeMessage(message) {
+    if (!message) return '';
+
+    var clean = message;
+
+    // Remove URLs
+    clean = clean.replace(/https?:\/\/[^\s]+/g, '');
+
+    // Remove common emote patterns (e.g., :emotename:, emote codes)
+    clean = clean.replace(/:[a-zA-Z0-9_]+:/g, '');
+
+    // Remove excessive punctuation (3+ of the same char)
+    clean = clean.replace(/([!?.]){3,}/g, '$1');
+
+    // Collapse excessive whitespace
+    clean = clean.replace(/\s{2,}/g, ' ');
+
+    // Trim
+    clean = clean.trim();
+
+    // Truncate very long messages (TTS is slow for long text)
+    if (clean.length > 200) {
+      clean = clean.substring(0, 200) + '...';
+    }
+
+    return clean;
+  }
+
+  /**
+   * Speak an alert message via TTS if enabled and available.
+   *
+   * @param {string} message - Raw user message
+   * @param {object} config - Alert config containing TTS settings
+   * @returns {Promise<void>}
+   */
+  function speakMessage(message, config) {
+    if (!config.tts_enabled) return Promise.resolve();
+    if (!message) return Promise.resolve();
+
+    if (typeof window.ttsManager === 'undefined') {
+      console.warn('[Alerts] TTSManager not loaded, skipping TTS');
+      return Promise.resolve();
+    }
+
+    var cleaned = sanitizeMessage(message);
+    if (!cleaned) return Promise.resolve();
+
+    return window.ttsManager.speak(cleaned, {
+      voice: config.tts_voice || undefined,
+      rate: config.tts_rate || 1.0,
+      pitch: config.tts_pitch || 1.0,
+      volume: config.tts_volume || 1.0
+    }).catch(function (err) {
+      console.error('[Alerts] TTS failed:', err);
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -206,9 +277,17 @@
       playSound(config.sound_path, config.sound_volume);
     }
 
-    // --- Wait for display duration ---
+    // --- TTS + Display Duration (concurrent) ---
+    // Run TTS and the display timer in parallel so the alert exits after
+    // whichever takes longer. This prevents very long alerts for long
+    // messages while still keeping the alert visible during TTS.
     var duration = config.duration_ms || 5000;
-    await sleep(duration);
+    // Speak the rendered template text (what's visible on screen), not just
+    // the raw {message} variable. The `text` variable contains the processed
+    // template with HTML escaping — strip any HTML tags for clean TTS input.
+    var ttsText = text ? text.replace(/<[^>]*>/g, '') : message;
+    var ttsPromise = speakMessage(ttsText, config);
+    await Promise.all([ttsPromise, sleep(duration)]);
 
     // --- Exit Animation ---
     var animOut = config.animation_out || 'fadeOut';

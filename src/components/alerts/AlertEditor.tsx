@@ -28,6 +28,7 @@ import AlertPreview from "./AlertPreview";
 import SoundPicker from "./SoundPicker";
 import ImagePicker from "./ImagePicker";
 import VariationList from "./VariationList";
+import TTSConfig from "./TTSConfig";
 
 // ---------------------------------------------------------------------------
 // Zod Schema
@@ -62,6 +63,10 @@ const alertSchema = z.object({
   custom_css: z.string().nullable(),
   min_amount: z.number().min(0).nullable(),
   tts_enabled: z.boolean(),
+  tts_voice: z.string().nullable(),
+  tts_rate: z.number().min(0.5).max(2.0),
+  tts_pitch: z.number().min(0.5).max(2.0),
+  tts_volume: z.number().min(0).max(1),
 });
 
 type AlertFormValues = z.infer<typeof alertSchema>;
@@ -134,6 +139,10 @@ const DEFAULT_VALUES: AlertFormValues = {
   custom_css: null,
   min_amount: null,
   tts_enabled: false,
+  tts_voice: null,
+  tts_rate: 1.0,
+  tts_pitch: 1.0,
+  tts_volume: 1.0,
 };
 
 // ---------------------------------------------------------------------------
@@ -177,6 +186,10 @@ function alertToFormValues(alert: Alert): AlertFormValues {
     custom_css: alert.custom_css,
     min_amount: alert.min_amount,
     tts_enabled: alert.tts_enabled === 1,
+    tts_voice: alert.tts_voice ?? null,
+    tts_rate: alert.tts_rate ?? 1.0,
+    tts_pitch: alert.tts_pitch ?? 1.0,
+    tts_volume: alert.tts_volume ?? 1.0,
   };
 }
 
@@ -670,30 +683,31 @@ export default function AlertEditor({
               </Field>
             </div>
 
-            {/* TTS */}
-            <div className="flex items-center gap-3">
-              <Controller
-                name="tts_enabled"
-                control={control}
-                render={({ field }) => (
-                  <Switch.Root
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    className="relative h-6 w-11 rounded-full bg-gray-700 transition-colors data-[state=checked]:bg-sf-primary"
-                  >
-                    <Switch.Thumb className="block h-5 w-5 translate-x-0.5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-[22px]" />
-                  </Switch.Root>
-                )}
-              />
-              <div>
-                <span className="text-sm text-gray-300">
-                  Text-to-Speech
-                </span>
-                <p className="text-xs text-gray-500">
-                  Read donation messages aloud
-                </p>
-              </div>
-            </div>
+            {/* TTS Configuration */}
+            <TTSConfig
+              enabled={watchedValues.tts_enabled}
+              voice={watchedValues.tts_voice}
+              rate={watchedValues.tts_rate}
+              pitch={watchedValues.tts_pitch}
+              volume={watchedValues.tts_volume}
+              onChange={(changes) => {
+                if (changes.tts_enabled !== undefined) {
+                  setValue("tts_enabled", changes.tts_enabled, { shouldDirty: true });
+                }
+                if (changes.tts_voice !== undefined) {
+                  setValue("tts_voice", changes.tts_voice, { shouldDirty: true });
+                }
+                if (changes.tts_rate !== undefined) {
+                  setValue("tts_rate", changes.tts_rate, { shouldDirty: true });
+                }
+                if (changes.tts_pitch !== undefined) {
+                  setValue("tts_pitch", changes.tts_pitch, { shouldDirty: true });
+                }
+                if (changes.tts_volume !== undefined) {
+                  setValue("tts_volume", changes.tts_volume, { shouldDirty: true });
+                }
+              }}
+            />
 
             {/* Custom CSS */}
             <Field label="Custom CSS" hint="Advanced: override alert styles">
@@ -745,6 +759,10 @@ export default function AlertEditor({
             bg_color: watchedValues.bg_color,
             custom_css: watchedValues.custom_css,
             tts_enabled: watchedValues.tts_enabled ? 1 : 0,
+            tts_voice: watchedValues.tts_voice,
+            tts_rate: watchedValues.tts_rate,
+            tts_pitch: watchedValues.tts_pitch,
+            tts_volume: watchedValues.tts_volume,
           }}
         />
 

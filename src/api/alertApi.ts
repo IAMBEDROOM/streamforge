@@ -43,6 +43,10 @@ export interface Alert {
   custom_css: string | null;
   min_amount: number | null;
   tts_enabled: number; // 0 | 1
+  tts_voice: string | null;
+  tts_rate: number | null;
+  tts_pitch: number | null;
+  tts_volume: number | null;
   created_at: string;
   updated_at: string;
   variations?: AlertVariation[];
@@ -102,6 +106,10 @@ export interface AlertInput {
   custom_css?: string | null;
   min_amount?: number | null;
   tts_enabled?: number;
+  tts_voice?: string | null;
+  tts_rate?: number;
+  tts_pitch?: number;
+  tts_volume?: number;
 }
 
 export interface UploadResponse {

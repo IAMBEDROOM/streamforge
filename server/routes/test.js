@@ -106,6 +106,10 @@ router.post('/', (req, res) => {
         bg_color: matchedAlert.bg_color,
         custom_css: matchedAlert.custom_css,
         tts_enabled: matchedAlert.tts_enabled,
+        tts_voice: matchedAlert.tts_voice,
+        tts_rate: matchedAlert.tts_rate,
+        tts_pitch: matchedAlert.tts_pitch,
+        tts_volume: matchedAlert.tts_volume,
       };
       // Remove null/undefined values so they don't override defaults
       for (const key of Object.keys(savedConfig)) {
@@ -135,6 +139,10 @@ router.post('/', (req, res) => {
     bg_color: null,
     custom_css: '',
     tts_enabled: 0,
+    tts_voice: null,
+    tts_rate: 1.0,
+    tts_pitch: 1.0,
+    tts_volume: 1.0,
     // Layer 2: saved config from dashboard
     ...savedConfig,
   };

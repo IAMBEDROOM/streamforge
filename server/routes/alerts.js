@@ -41,6 +41,7 @@ const ALERT_FIELDS = [
   'animation_in', 'animation_out', 'sound_path', 'sound_volume',
   'image_path', 'font_family', 'font_size', 'text_color', 'bg_color',
   'custom_css', 'min_amount', 'tts_enabled',
+  'tts_voice', 'tts_rate', 'tts_pitch', 'tts_volume',
 ];
 
 /**

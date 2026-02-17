@@ -32,6 +32,10 @@ interface AlertPreviewProps {
     bg_color?: string | null;
     custom_css?: string | null;
     tts_enabled?: number;
+    tts_voice?: string | null;
+    tts_rate?: number;
+    tts_pitch?: number;
+    tts_volume?: number;
   };
   /** Whether the preview button should be disabled (e.g. form is invalid). */
   disabled?: boolean;
@@ -55,12 +59,27 @@ export default function AlertPreview({
     setErrorMsg(null);
 
     try {
+      const previewType = formValues.type || "follow";
+      const previewUsername = "PreviewUser";
+      const previewAmount =
+        previewType === "cheer" ? 100 : previewType === "donation" ? 5 : null;
+
+      // Build a preview message by filling in the template variables,
+      // so TTS reads exactly what appears on screen.
+      const previewMessage = formValues.tts_enabled
+        ? (formValues.message_template || "{username} triggered an alert!")
+            .replace(/\{username\}/g, previewUsername)
+            .replace(/\{amount\}/g, previewAmount != null ? String(previewAmount) : "")
+            .replace(/\{message\}/g, "")
+            .trim()
+        : null;
+
       await triggerTestAlertQueue({
-        type: formValues.type || "follow",
-        username: "PreviewUser",
-        displayName: "PreviewUser",
-        amount: formValues.type === "cheer" ? 100 : formValues.type === "donation" ? 5 : null,
-        message: null,
+        type: previewType,
+        username: previewUsername,
+        displayName: previewUsername,
+        amount: previewAmount,
+        message: previewMessage,
         config: {
           message_template: formValues.message_template || "{username} triggered an alert!",
           duration_ms: formValues.duration_ms || 5000,
@@ -75,6 +94,10 @@ export default function AlertPreview({
           bg_color: formValues.bg_color,
           custom_css: formValues.custom_css,
           tts_enabled: formValues.tts_enabled,
+          tts_voice: formValues.tts_voice,
+          tts_rate: formValues.tts_rate,
+          tts_pitch: formValues.tts_pitch,
+          tts_volume: formValues.tts_volume,
         } as never,
       });
 

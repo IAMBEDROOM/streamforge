@@ -93,6 +93,10 @@ const DEFAULT_CONFIG = {
   bg_color: null,
   custom_css: '',
   tts_enabled: 0,
+  tts_voice: null,
+  tts_rate: 1.0,
+  tts_pitch: 1.0,
+  tts_volume: 1.0,
 };
 
 /** Default message templates per alert type */
